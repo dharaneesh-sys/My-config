@@ -1,0 +1,43 @@
+# Browser caches
+BraveSoftware/
+google-chrome-for-testing/
+chromium/
+Antigravity/
+Hyper/
+
+# IDE caches
+Code/
+Code - OSS/
+Cursor/
+VSCodium/
+
+# Editor state files
+*.vscdb
+*.vscdb.backup
+workspaceStorage/
+
+# LibreOffice auto-generated
+libreoffice/4/cache/
+libreoffice/4/user/backup/
+libreoffice/4/user/uno_packages/cache/
+libreoffice/4/user/extensions/buildid
+libreoffice/4/user/extensions/bundled/
+libreoffice/4/user/pack/
+libreoffice/4/user/registrymodifications.xcu
+
+# Media/app caches
+blender/
+
+# IDE backups
+opencode.backup/
+
+# Session restore / temp
+session/
+go/telemetry/
+
+# Backups
+*.bak
+*.backup
+
+# Note-taking caches
+obsidian/VSCodium/

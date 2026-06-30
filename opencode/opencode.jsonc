@@ -1,0 +1,34 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "plugin": [
+    "oh-my-openagent@latest",
+    "@mohak34/opencode-notifier@latest"
+  ],
+  "provider": {
+    "ollama": {
+      "npm": "@ai-sdk/openai-compatible",
+      "name": "Ollama",
+      "options": {
+        "baseURL": "http://localhost:11434/v1"
+      },
+      "models": {
+        "qwen2.5-coder:7b": {
+          "name": "qwen2.5-coder:7b"
+        }
+      }
+    }
+  },
+  "mcp": {
+    "vision": {
+      "type": "local",
+      "command": ["/home/dinusus/.local/bin/opencode-vision"],
+      "enabled": true,
+      "timeout": 300000,
+      "env": {
+        "VISION_PROVIDER": "ollama",
+        "OLLAMA_MODEL": "moondream",
+        "OLLAMA_BASE_URL": "http://localhost:11434"
+      }
+    }
+  }
+}

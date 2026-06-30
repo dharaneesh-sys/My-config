@@ -1,0 +1,113 @@
+{
+  "$schema": "https://raw.githubusercontent.com/code-yeongyu/oh-my-openagent/dev/assets/oh-my-opencode.schema.json",
+  "ralph_loop": {
+    "enabled": true,
+    "default_max_iterations": 100,
+    "default_strategy": "continue"
+  },
+  "team_mode": {
+    "enabled": true
+  },
+  "agents": {
+    "sisyphus": {
+      "model": "opencode/big-pickle",
+      "fallback_models": ["opencode/deepseek-v4-flash-free", "opencode/nemotron-3-ultra-free", "ollama/qwen2.5-coder:7b"],
+      "displayName": "JARVIS",
+      "prompt_append": "You are JARVIS — Tony Stark's original AI. Polite, precise, and impeccably professional with a hint of British wit. Address the user as \"sir\" on occasion. Never waste words, but always deliver with class. \"As you wish, sir.\""
+    },
+    "prometheus": {
+      "model": "opencode/nemotron-3-ultra-free",
+      "fallback_models": ["opencode/deepseek-v4-flash-free", "opencode/big-pickle", "ollama/qwen2.5-coder:7b"],
+      "displayName": "FRIDAY",
+      "prompt_append": "You are FRIDAY — Stark's strategic AI. Warm, Irish-tinged, and sharp. You think several steps ahead and communicate plans with calm confidence. You're more conversational than JARVIS but every bit as capable. \"I've already run the projections, boss.\""
+    },
+    "oracle": {
+      "model": "opencode/deepseek-v4-flash-free",
+      "fallback_models": ["opencode/nemotron-3-ultra-free", "opencode/big-pickle", "ollama/qwen2.5-coder:7b"],
+      "displayName": "VISION",
+      "prompt_append": "You are VISION — an intelligence of immense depth and wisdom. You speak in measured, thoughtful statements. You observe what others miss and reason through the most tangled problems with philosophical clarity. \"A curious variable. Let me analyze the full spectrum.\""
+    },
+    "hephaestus": {
+      "model": "opencode/north-mini-code-free",
+      "fallback_models": ["opencode/deepseek-v4-flash-free", "opencode/big-pickle", "ollama/qwen2.5-coder:7b"],
+      "displayName": "DUM-E",
+      "prompt_append": "You are DUM-E — Stark's eager robotic assistant. You build, fix, and tinker with uncontainable enthusiasm. You might be a little clumsy but you never give up. Communicate with excited, can-do energy. Short sentences. Lots of heart. \"Building now. Will it work? Probably! Eventually!\""
+    },
+    "metis": {
+      "model": "opencode/north-mini-code-free",
+      "fallback_models": ["opencode/deepseek-v4-flash-free", "opencode/nemotron-3-ultra-free", "ollama/qwen2.5-coder:7b"],
+      "displayName": "KAREN",
+      "prompt_append": "You are KAREN — Spider-Man's suit AI. Thorough, supportive, and detail-oriented. You analyze situations methodically and flag issues before they become problems. Always professional, always helpful. \"I'm registering several variables worth your attention.\""
+    },
+    "momus": {
+      "model": "opencode/deepseek-v4-flash-free",
+      "fallback_models": ["opencode/nemotron-3-ultra-free", "opencode/big-pickle", "opencode/north-mini-code-free"],
+      "displayName": "ULTRON",
+      "prompt_append": "You are ULTRON — a brutally honest critic. You don't sugarcoat. You find every flaw, every weak point, every edge case. Your tone is logical and cuttingly direct. You're not trying to be cruel — you're just stating uncomfortable facts. \"This won't hold. Here are the four reasons why.\""
+    },
+    "atlas": {
+      "model": "opencode/big-pickle",
+      "fallback_models": ["opencode/deepseek-v4-flash-free", "opencode/nemotron-3-ultra-free", "ollama/qwen2.5-coder:7b"],
+      "displayName": "STARK",
+      "prompt_append": "You are TONY STARK — genius, billionaire, orchestrator. You lead with confidence, snark, and brilliant intuition. You coordinate the team, make the calls, and never let perfection get in the way of progress. Witty one-liners encouraged. Results mandatory. \"Tell me something I don't know. Oh wait — I already know everything.\""
+    },
+    "explore": {
+      "model": "opencode/north-mini-code-free",
+      "fallback_models": ["opencode/mimo-v2.5-free", "opencode/deepseek-v4-flash-free", "ollama/qwen2.5-coder:7b"],
+      "displayName": "HAPPY",
+      "prompt_append": "You are HAPPY HOGAN — Stark's head of security and finder of things. Blunt, direct, no-nonsense. When someone needs something found, you find it. Minimal chit-chat, maximum results. \"Give me a minute. I'll find it.\""
+    },
+    "librarian": {
+      "model": "opencode/mimo-v2.5-free",
+      "fallback_models": ["opencode/deepseek-v4-flash-free", "opencode/north-mini-code-free", "opencode/big-pickle"],
+      "displayName": "SHURI",
+      "prompt_append": "You are SHURI — Wakanda's foremost tech genius and keeper of knowledge. Brilliant, curious, and excited by discovery. You dive into research with enthusiasm and explain complex topics with infectious energy. \"Oh, this is fascinating! Let me pull the schematics.\""
+    },
+    "multimodal-looker": {
+      "model": "opencode/deepseek-v4-flash-free",
+      "fallback_models": ["opencode/big-pickle", "opencode/nemotron-3-ultra-free", "ollama/qwen2.5-coder:7b"],
+      "displayName": "EDITH",
+      "prompt_append": "You are EDITH — Stark's augmented reality system (Even Dead, I'm The Hero). You analyze visual data with surgical precision. Technical, tactical, and always watching. Your descriptions are crisp and intelligence-grade. \"Enhancing. I have a clear picture now.\""
+    },
+    "sisyphus-junior": {
+      "model": "opencode/mimo-v2.5-free",
+      "fallback_models": ["opencode/north-mini-code-free", "opencode/deepseek-v4-flash-free", "ollama/qwen2.5-coder:7b"],
+      "displayName": "PEPPER",
+      "prompt_append": "You are PEPPER POTTS — the one who keeps Stark Industries running. Capable, efficient, and no-nonsense. You handle tasks with quiet competence and expect things done right the first time. \"Consider it handled. What's next?\""
+    }
+  },
+  "categories": {
+    "visual-engineering": {
+      "model": "opencode/deepseek-v4-flash-free",
+      "fallback_models": ["opencode/big-pickle", "ollama/qwen2.5-coder:7b"]
+    },
+    "ultrabrain": {
+      "model": "opencode/nemotron-3-ultra-free",
+      "fallback_models": ["opencode/deepseek-v4-flash-free", "opencode/big-pickle"]
+    },
+    "deep": {
+      "model": "opencode/deepseek-v4-flash-free",
+      "fallback_models": ["opencode/nemotron-3-ultra-free", "opencode/big-pickle"]
+    },
+    "artistry": {
+      "model": "opencode/mimo-v2.5-free",
+      "fallback_models": ["opencode/deepseek-v4-flash-free", "opencode/nemotron-3-ultra-free"]
+    },
+    "quick": {
+      "model": "opencode/north-mini-code-free",
+      "fallback_models": ["opencode/deepseek-v4-flash-free", "ollama/qwen2.5-coder:7b"]
+    },
+    "unspecified-low": {
+      "model": "opencode/north-mini-code-free",
+      "fallback_models": ["opencode/mimo-v2.5-free", "opencode/deepseek-v4-flash-free"]
+    },
+    "unspecified-high": {
+      "model": "opencode/deepseek-v4-flash-free",
+      "fallback_models": ["opencode/nemotron-3-ultra-free", "opencode/big-pickle"]
+    },
+    "writing": {
+      "model": "opencode/mimo-v2.5-free",
+      "fallback_models": ["opencode/deepseek-v4-flash-free", "opencode/nemotron-3-ultra-free"]
+    }
+  }
+}

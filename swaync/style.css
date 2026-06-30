@@ -1,0 +1,601 @@
+@import url("colors.css");
+@import url("slider-override.css");
+
+* {
+    font-family: "JetBrainsMono Nerd Font", monospace;
+    font-size: 13px;
+    font-weight: 500;
+    border: none;
+    margin: 0;
+    padding: 0;
+    transition: all 0.2s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/* ══════════════════════════════════════════
+   FLOATING NOTIFICATIONS — pill style
+══════════════════════════════════════════ */
+.floating-notifications {
+    background: transparent;
+}
+
+.floating-notifications .notification-row {
+    margin: 8px 16px;
+}
+
+.floating-notifications .notification-background {
+    background: alpha(@surface_container_high, 0.97);
+    border-radius: 24px;
+    box-shadow:
+        0 4px 16px alpha(@scrim, 0.3);
+}
+
+.floating-notifications .notification {
+    padding: 12px 18px 12px 14px;
+    color: @on_surface;
+    border-radius: 24px;
+}
+
+.floating-notifications .notification.critical {
+    border: 2px solid @error;
+    border-radius: 24px;
+}
+
+.floating-notifications .notification-content {
+    margin: 0;
+    border-radius: 24px;
+}
+
+.floating-notifications .close-button {
+    background: @surface_variant;
+    color: @on_surface_variant;
+    border-radius: 50%;
+    min-width: 28px;
+    min-height: 28px;
+    font-size: 10px;
+    margin: 4px;
+    padding: 0;
+}
+
+.floating-notifications .close-button:hover {
+    background: @error;
+    color: @on_error;
+}
+
+.floating-notifications .notification-default-action {
+    border-radius: 24px;
+}
+
+/* ══════════════════════════════════════════
+   CONTROL CENTER
+══════════════════════════════════════════ */
+.control-center {
+    background: alpha(@surface, 0.97);
+    border: 1px solid alpha(@outline_variant, 0.15);
+    border-radius: 16px;
+    color: @on_surface;
+    margin: 10px;
+    padding: 8px;
+    box-shadow:
+        0 16px 48px alpha(@scrim, 0.4),
+        0 0 0 1px alpha(@surface_bright, 0.05);
+}
+
+.control-center-list {
+    background: transparent;
+    border-radius: 16px;
+    padding: 2px 0;
+}
+
+.control-center-list-placeholder {
+    opacity: 0.4;
+    font-size: 13px;
+    color: @on_surface_variant;
+}
+
+/* ══════════════════════════════════════════
+   NOTIFICATION ROWS (Control Center)
+══════════════════════════════════════════ */
+.control-center .notification-row {
+    outline: none;
+    margin: 4px 0;
+    border-radius: 16px;
+}
+
+.control-center .notification-row:hover {
+    background: transparent;
+}
+
+.control-center .notification-background {
+    background: @surface_container;
+    border-radius: 16px;
+    margin: 0;
+    padding: 4px 8px;
+}
+
+.control-center .notification-background:hover {
+    background: @surface_container_high;
+}
+
+.control-center .notification-background .close-button {
+    opacity: 0;
+}
+
+.control-center .notification-background:hover .close-button {
+    opacity: 1;
+}
+
+.control-center .notification {
+    padding: 10px 12px;
+    color: @on_surface;
+}
+
+.control-center .notification.critical {
+    border: 2px solid @error;
+    border-radius: 16px;
+}
+
+.control-center .notification-content {
+    margin: 0;
+}
+
+.notification-default-action {
+    border-radius: 16px;
+    padding: 0;
+    margin: 0;
+    background: transparent;
+}
+
+.notification-default-action:not(:only-child) {
+    border-bottom-left-radius: 0;
+    border-bottom-right-radius: 0;
+}
+
+.notification-default-action:hover {
+    background: transparent;
+}
+
+.app-name {
+    font-size: 10px;
+    font-weight: 700;
+    color: @primary;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+}
+
+.app-icon {
+    border-radius: 8px;
+    margin-right: 4px;
+}
+
+.summary {
+    font-size: 13px;
+    font-weight: 600;
+    color: @on_surface;
+    background: transparent;
+}
+
+.body {
+    font-size: 12px;
+    font-weight: 400;
+    color: @on_surface_variant;
+    background: transparent;
+    margin-top: 2px;
+    line-height: 1.4;
+}
+
+.time {
+    font-size: 11px;
+    font-weight: 400;
+    color: @outline;
+    background: transparent;
+    margin-right: 4px;
+}
+
+/* ══════════════════════════════════════════
+   NOTIFICATION GROUPING
+══════════════════════════════════════════ */
+.notification-group {
+    margin: 4px 0;
+    border-radius: 16px;
+}
+
+.notification-group-headers {
+    background: @surface_container;
+    border-radius: 16px;
+    padding: 8px 14px;
+    color: @on_surface;
+    font-weight: 600;
+    font-size: 13px;
+}
+
+.notification-group-headers > label {
+    margin: 0 4px;
+}
+
+.notification-group .notification-background {
+    border-radius: 16px;
+    margin: 0;
+    padding: 2px 8px;
+}
+
+.notification-group .notification-background:last-child {
+    border-radius: 16px;
+}
+
+.notification-group-icon {
+    color: @on_surface;
+}
+
+.notification-group-buttons {
+    background: @surface_container;
+    border-radius: 16px;
+    padding: 4px 8px;
+    margin: 0;
+}
+
+.notification-group-buttons .image-button {
+    background: transparent;
+    color: @on_surface_variant;
+    padding: 4px;
+    border-radius: 8px;
+    min-width: 24px;
+    min-height: 24px;
+}
+
+.notification-group-buttons .image-button:hover {
+    background: @surface_variant;
+    color: @on_surface;
+}
+
+/* ══════════════════════════════════════════
+   CLOSE BUTTON
+══════════════════════════════════════════ */
+.close-button {
+    background: @surface_variant;
+    color: @on_surface_variant;
+    border-radius: 50%;
+    padding: 2px;
+    margin: 6px;
+    min-width: 24px;
+    min-height: 24px;
+    font-size: 10px;
+    font-weight: 600;
+}
+
+.close-button:hover {
+    background: @error;
+    color: @on_error;
+}
+
+/* ══════════════════════════════════════════
+   NOTIFICATION ACTIONS
+══════════════════════════════════════════ */
+.notification-actions {
+    background: @surface_container_high;
+    border-radius: 16px;
+    margin: 0;
+    padding: 4px;
+}
+
+.notification-action {
+    background: transparent;
+    border-radius: 16px;
+    margin: 2px;
+    color: @primary;
+    font-size: 12px;
+    font-weight: 600;
+    padding: 6px 14px;
+    min-height: 28px;
+}
+
+.notification-action:hover {
+    background: @primary;
+    color: @on_primary;
+}
+
+/* ══════════════════════════════════════════
+   INLINE REPLY
+══════════════════════════════════════════ */
+.inline-reply {
+    margin-top: 8px;
+}
+
+.inline-reply-entry {
+    background: @surface;
+    color: @on_surface;
+    border: 1px solid @outline_variant;
+    border-radius: 12px;
+    padding: 7px 14px;
+    caret-color: @primary;
+}
+
+.inline-reply-entry:focus {
+    border-color: @primary;
+}
+
+.inline-reply-button {
+    background: @primary;
+    color: @on_primary;
+    border-radius: 16px;
+    padding: 7px 14px;
+    margin-left: 6px;
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.inline-reply-button:hover {
+    background: @primary_fixed;
+}
+
+/* ══════════════════════════════════════════
+   TITLE BAR
+══════════════════════════════════════════ */
+.widget-title {
+    background: transparent;
+    padding: 6px 12px 6px 12px;
+    margin: 0 0 2px 0;
+    color: @on_surface;
+    font-size: 15px;
+    font-weight: 700;
+}
+
+.widget-title > button {
+    background: @surface_variant;
+    color: @on_surface_variant;
+    border-radius: 16px;
+    padding: 5px 14px;
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.widget-title > button:hover {
+    background: @error_container;
+    color: @on_error;
+}
+
+/* ══════════════════════════════════════════
+   DND WIDGET
+══════════════════════════════════════════ */
+.widget-dnd {
+    background: @surface_container;
+    border-radius: 16px;
+    padding: 10px 16px;
+    margin: 4px 6px;
+    color: @on_surface;
+    font-size: 14px;
+    font-weight: 600;
+}
+
+.widget-dnd > switch {
+    border-radius: 16px;
+    background: @surface_variant;
+    min-width: 46px;
+    min-height: 24px;
+    padding: 2px;
+    transition: background 0.2s;
+}
+
+.widget-dnd > switch:checked {
+    background: @primary;
+}
+
+.widget-dnd > switch slider {
+    background: @on_surface;
+    border-radius: 50%;
+    min-width: 20px;
+    min-height: 20px;
+    margin: 0;
+    transition: all 0.2s;
+}
+
+.widget-dnd > switch:checked slider {
+    background: @on_primary;
+}
+
+/* ══════════════════════════════════════════
+   BUTTONS GRID
+══════════════════════════════════════════ */
+.widget-buttons-grid {
+    background: @surface_container;
+    border-radius: 10px;
+    padding: 8px 12px;
+    margin: 4px 6px;
+}
+
+.widget-buttons-grid > flowbox > flowboxchild {
+    padding: 3px;
+}
+
+.widget-buttons-grid button {
+    background: @surface;
+    border-radius: 12px;
+    color: @on_surface_variant;
+    font-size: 20px;
+    margin: 2px;
+    padding: 0;
+    min-width: 48px;
+    min-height: 48px;
+    border: 1px solid transparent;
+    transition: all 0.15s;
+}
+
+.widget-buttons-grid button:hover {
+    background: @surface_variant;
+    color: @on_surface;
+    border-color: @outline_variant;
+}
+
+.widget-buttons-grid button.active {
+    background: @primary;
+    color: @on_primary;
+    border-color: @primary;
+}
+
+.widget-buttons-grid button:checked {
+    background: @primary;
+    color: @on_primary;
+}
+
+/* ══════════════════════════════════════════
+   MPRIS
+══════════════════════════════════════════ */
+.widget-mpris {
+    background: @surface_container;
+    border-radius: 10px;
+    padding: 10px 16px;
+    margin: 4px 6px;
+    color: @on_surface;
+}
+
+.widget-mpris-player {
+    padding: 4px;
+}
+
+.widget-mpris-album-art {
+    border-radius: 12px;
+    min-width: 72px;
+    min-height: 72px;
+}
+
+.widget-mpris-title {
+    font-weight: 700;
+    font-size: 14px;
+    color: @on_surface;
+}
+
+.widget-mpris-subtitle {
+    font-size: 12px;
+    font-weight: 500;
+    color: @on_surface_variant;
+    margin-top: 1px;
+}
+
+.widget-mpris button {
+    background: transparent;
+    color: @on_surface;
+    border-radius: 50%;
+    padding: 6px;
+    font-size: 18px;
+    min-width: 34px;
+    min-height: 34px;
+    transition: all 0.15s;
+}
+
+.widget-mpris button:hover {
+    background: @surface_variant;
+    color: @primary;
+}
+
+/* ══════════════════════════════════════════
+   VOLUME & BACKLIGHT — with color refresh fix
+══════════════════════════════════════════ */
+.widget-volume,
+.widget-backlight {
+    background: @surface_container;
+    border-radius: 10px;
+    padding: 10px 16px;
+    margin: 4px 6px;
+    color: @on_surface;
+    font-size: 15px;
+}
+
+/* Force GTK to re-read CSS vars by targeting inner elements with
+   more specific selectors and transition hints */
+.widget-volume scale,
+.widget-backlight scale {
+    min-height: 20px;
+    padding: 0 6px;
+    color: inherit;
+}
+
+.widget-volume trough,
+.widget-backlight trough,
+widget-volume trough,
+widget-backlight trough {
+    background: @surface;
+    border-radius: 10px;
+    min-height: 6px;
+    border: none;
+}
+
+.widget-volume highlight,
+.widget-backlight highlight,
+widget-volume highlight,
+widget-backlight highlight {
+    background: @primary !important;
+    border-radius: 10px;
+    min-height: 6px;
+}
+
+/* Duplicate selectors with GTK-native class names to defeat caching */
+scale trough,
+scale highlight {
+    min-height: 6px;
+}
+
+scale trough {
+    background: @surface;
+    border-radius: 10px;
+    border: none;
+}
+
+scale highlight {
+    background: @primary !important;
+    border-radius: 10px;
+}
+
+.widget-volume slider,
+.widget-backlight slider,
+widget-volume slider,
+widget-backlight slider {
+    background: @on_surface;
+    border-radius: 50%;
+    min-width: 16px;
+    min-height: 16px;
+    margin: -5px 0;
+    border: 2px solid @surface_container;
+    box-shadow: none;
+    transition: background 0.2s, border-color 0.2s;
+}
+
+.widget-volume slider:hover,
+.widget-backlight slider:hover,
+widget-volume slider:hover,
+widget-backlight slider:hover {
+    background: @primary;
+    border-color: @primary;
+}
+
+/* Additional scale trough/highlight overrides — these broader
+   GTK selectors help force a style recalculation */
+scale trough background,
+scale highlight background {
+    background: @surface;
+}
+
+scale highlight background {
+    background: @primary !important;
+}
+
+/* ══════════════════════════════════════════
+   TOOLTIPS
+══════════════════════════════════════════ */
+tooltip {
+    background: @surface_container_high;
+    border: 1px solid @outline_variant;
+    border-radius: 10px;
+    padding: 6px 14px;
+    color: @on_surface;
+}
+
+tooltip label {
+    color: @on_surface;
+    font-size: 12px;
+}
+
+/* ══════════════════════════════════════════
+   BLANK WINDOW
+══════════════════════════════════════════ */
+.blank-window {
+    background: transparent;
+}
