@@ -1,0 +1,292 @@
+@import url("colors.css");
+
+/* ── Reset ─────────────────────────────────────── */
+* {
+    font-family: 'Iosevka Nerd Font Propo', 'Inter', monospace;
+    all: unset;
+    font-size: 13px;
+    font-weight: 600;
+    border: none;
+    border-radius: 0;
+    min-height: 0;
+    margin: 0;
+    padding: 0;
+    background: transparent;
+}
+
+.modules-left>widget,
+.modules-center>widget,
+.modules-right>widget {
+    margin: 0 28px;
+}
+
+/* ── Bar itself — full width, thin, dark translucent with backdrop blur ── */
+/*window#waybar {
+    background: alpha(@surface_container, 0.6);
+    color: @on_surface;
+    border-radius: 12px;
+    margin: 4px 8px;
+}
+
+*/
+window#waybar {
+    background: transparent;
+    border-radius: 12px;
+    margin: 4px 8px;
+}
+
+/* ── Left / Center / Right containers ─────────── */
+.modules-left,
+.modules-center,
+.modules-right {
+    background: transparent;
+}
+
+/* ── Unified pill base style for all modules ────── */
+#custom-arch,
+#custom-media,
+#clock,
+#custom-notification,
+#workspaces,
+#network,
+#pulseaudio,
+#battery,
+#custom-bell,
+#custom-weather,
+#custom-power,
+#tray {
+    background: @surface_variant;
+    border-radius: 16px;
+    padding: 2px 12px;
+    margin: 4px 6px;
+}
+
+
+/* ── Clock ─────────────────────────────────────── */
+#clock {
+    color: @primary;
+    padding: 0 10px;
+    font-size: 13px;
+    background: @on_primary;
+    border-radius: 16px;
+}
+
+#clock:hover {
+    background: @primary;
+    color: @on_primary;
+}
+
+#custom-media {
+    color: @tertiary;
+    padding: 0 8px;
+    background: @on_tertiary;
+    border-radius: 16px;
+    font-size: 13px;
+}
+
+#custom-media:hover {
+    background: @tertiary;
+    color: @on_tertiary;
+}
+
+/* ── Notification ──────────────────────────────── */
+#custom-notification {
+    color: @tertiary;
+    background: alpha(@tertiary_container, 0.7);
+    border-radius: 12px;
+}
+
+/* ── Workspaces container ──────────────────────── */
+#workspaces {
+    background: @on_tertiary;
+    border-radius: 16px;
+    padding: 2px 4px;
+    margin: 4px 0;
+}
+
+#tray {
+    background: @on_primary;
+    border-radius: 12px;
+    padding: 2px 8px;
+    margin: 4px;
+}
+
+
+#tray>.tray-item {
+    padding: 2px 6px;
+    border-radius: 999px;
+    transition: all 0.15s ease;
+    min-width: 20px;
+}
+
+#tray>.tray-item:hover {
+    background: @primary;
+}
+
+#tray>.tray-item>widget>image {
+    -gtk-icon-transform: scale(1);
+}
+
+#tray menu {
+    background: @surface;
+    border: 0px solid alpha(@outline, 1);
+    border-radius: 12px;
+    padding: 4px;
+}
+
+#tray menu menuitem {
+    border-radius: 999px;
+    padding: 6px 14px;
+    color: @on_surface;
+}
+
+#tray menu menuitem:hover {
+    background: @primary;
+    color: @on_primary;
+}
+
+/* ── Individual workspace buttons ──────────────── */
+#workspaces button {
+    color: @on_surface;
+    border-radius: 16px;
+    padding: 1px 10px;
+    margin: 1px 1px;
+    min-width: 18px;
+    font-size: 13px;
+    transition: all 0.2s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+#workspaces button:hover {
+    margin-top: -2px;
+    color: @primary;
+    background: @surface_container_high;
+}
+
+/* Active workspace — bright blue pill like thumbnail */
+#workspaces button.active {
+    color: @on_primary;
+    background: @primary;
+    border-radius: 16px;
+    padding: 1px 14px;
+    font-weight: 700;
+    box-shadow: inset 0 -1px 0 rgba(0, 0, 0, 0.15);
+}
+
+#workspaces button.urgent {
+    color: @on_error;
+    background: @error;
+}
+
+/* ── Network ───────────────────────────────────── */
+#network {
+    color: @secondary;
+    background: @on_secondary;
+    border-radius: 16px;
+    font-size: 13px;
+}
+
+#network:hover {
+    background: @secondary;
+    color: @on_secondary;
+}
+
+#network.disconnected {
+    color: @on_surface;
+    background: @surface_variant;
+    border-radius: 16px;
+}
+
+/* ── Audio ─────────────────────────────────────── */
+#pulseaudio {
+    color: @tertiary;
+    background: @on_tertiary;
+    font-size: 13px;
+    border-radius: 16px;
+}
+
+#pulseaudio:hover {
+    background: @tertiary;
+    color: @on_tertiary;
+}
+
+#pulseaudio.muted {
+    color: @on_surface;
+    background: @surface_variant;
+    border-radius: 16px;
+}
+
+/* ── Battery ───────────────────────────────────── */
+#battery {
+    color: @primary;
+    background: @on_primary;
+    font-size: 13px;
+    border-radius: 16px;
+}
+
+
+#battery:hover {
+    background: @primary;
+    color: @on_primary;
+}
+
+#battery.charging {
+    color: @primary;
+    background: @on_primary;
+    border-radius: 16px;
+}
+
+#battery.warning {
+    color: @error;
+    background: @error_container;
+    border-radius: 16px;
+}
+
+#battery.critical:not(.charging) {
+    color: @on_error;
+    background: @error;
+    border-radius: 16px;
+    animation: blink 1s linear infinite;
+}
+
+/* ── Weather ───────────────────────────────────── */
+#custom-weather {
+    color: @secondary;
+    background: @on_secondary;
+    border-radius: 16px;
+    font-size: 13px;
+}
+
+#custom-weather:hover {
+    background: @secondary;
+    color: @on_secondary;
+}
+
+/* ── Tooltips ──────────────────────────────────── */
+tooltip {
+    background: @surface;
+    border: 1px solid alpha(@outline, 0.9);
+    border-radius: 12px;
+    padding: 6px;
+    color: @on_surface;
+}
+
+tooltip label {
+    color: @on_surface;
+}
+
+/* ── Blink for critical battery ────────────────── */
+@keyframes blink {
+    50% {
+        background: alpha(@error, 0.4);
+        color: @error;
+    }
+}
+
+/* ── Interactive module transitions ────────────── */
+#clock,
+#network,
+#pulseaudio,
+#battery,
+#tray {
+    transition: all 0.15s ease;
+}

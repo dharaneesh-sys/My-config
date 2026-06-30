@@ -1,0 +1,38 @@
+@import "colors.css";
+
+* {
+    background-image: none;
+    font-family: "JetBrainsMono Nerd Font", monospace;
+}
+
+window {
+    background-color: alpha(@background, 0.8);
+}
+
+button {
+    background-color: @surface_container;
+    background-repeat: no-repeat;
+    background-position: center;
+    border: none;
+    border-radius: 16px;
+    color: @on_surface;
+    font-size: 28px;
+    font-weight: 700;
+    margin: 10px;
+    padding: 8px 20px 10px;
+    min-width: 80px;
+    min-height: 60px;
+    transition: all 0.2s ease;
+    box-shadow: 0 2px 6px alpha(@scrim, 0.2);
+}
+
+button:hover {
+    background-color: @primary;
+    color: @on_primary;
+    box-shadow: 0 6px 20px alpha(@primary, 0.3);
+}
+
+button:active {
+    background-color: @primary_fixed_dim;
+    color: @on_primary_fixed;
+}

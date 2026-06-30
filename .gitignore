@@ -1,43 +1,203 @@
-# Browser caches
+# Browsers (profiles, caches)
 BraveSoftware/
 google-chrome-for-testing/
+mozilla/
+zen/
 chromium/
 Antigravity/
 Hyper/
 
-# IDE caches
+# IDEs & editors (user-specific state)
 Code/
 Code - OSS/
 Cursor/
 VSCodium/
+ai.opencode.desktop/
+opencode/
 
 # Editor state files
 *.vscdb
 *.vscdb.backup
 workspaceStorage/
 
-# LibreOffice auto-generated
-libreoffice/4/cache/
-libreoffice/4/user/backup/
-libreoffice/4/user/uno_packages/cache/
-libreoffice/4/user/extensions/buildid
-libreoffice/4/user/extensions/bundled/
-libreoffice/4/user/pack/
-libreoffice/4/user/registrymodifications.xcu
+# Office
+libreoffice/
+onlyoffice/
 
-# Media/app caches
+# Desktop environment state
+dconf/
+cosmic*/
+KDE/
+plasma-*
+plasmarc*
+plasmashellrc
+plasma*
+
+# KDE/Plasma auto-generated
+kactivitymanagerd*
+kconf_updaterc
+kded5rc
+kdedefaults/
+kglobalshortcutsrc
+kiorc
+krunnerrc
+kscreenlockerrc
+ksmserverrc
+ksplashrc
+ktimezonedrc
+kwalletrc
+kwinoutputconfig.json
+kwinrc
+kwriterc
+kate/
+k*
+kdeconnect/
+kdeglobals
+latte*/
+lattedockrc
+baloofilerc
+bluedevilglobalrc
+bluedevilreceiverrc
+discoverrc
+dolphinrc
+emaildefaults
+filelightrc
+filetypesrc
+gwenviewrc
+kmenueditrc
+konsolerc
+konsolesshconfig
+okularpartrc
+okularrc
+spectaclerc
+systemmonitorrc
+Trolltech.conf
+QtProject*
+sddmthemeinstallerrc
+trashrc
+arkrc
+kanshi/
+powermanagementprofilesrc
+user-dirs.dirs
+user-dirs.locale
+plasma-localerc
+plasmanotifyrc
+plasmaparc
+libaccounts-glib/
+kcalcrc
+kcminputrc
+
+# Audio
+pulse/
+pavucontrol.ini
+
+# Virtualization & databases
+VirtualBox/
+pgadmin4/
+
+# Media creation
+obs-studio/
 blender/
 
-# IDE backups
-opencode.backup/
+# Package managers & dev tools
+composer/
+uv/
+gh/
+nextjs-nodejs/
+capacitor/
+create-next-app-nodejs/
 
-# Session restore / temp
+# App caches & generated
+cachyos-hello.json
+cachyos/
+Electron/
+python/
+wireshark/
+vesktop/
+vlc/
+mpv/
+metropolis/
+micro/
+batfetch/
+fish/
+fontconfig/
+libinput-gestures.conf
+menus/
+mimeapps.list
+networkmanager-dmenu/
+nwg-dock-hyprland/
+nwg-drawer/
+nwg-look/
+octopi/
+xsettingsd/
+swayimg/
+thunar/
+xdg-desktop-portal/
+xfce4/
+environment.d/
+autostart/
+alacritty/
+eww/
+kitty/
+foot/colors.ini
+cava-bg/
+fastfetch/yy.txt
+dgop/
+
+# Session & system state
 session/
+systemd/
 go/telemetry/
 
-# Backups
+# Backups & temp
 *.bak
 *.backup
+*cache*/
+quickshell.backup.*/
+nvchad/
+waybar.bak/
+wlogout.bak/
+__pycache__/
+local/bin/__pycache__/
+.omo/
 
-# Note-taking caches
-obsidian/VSCodium/
+# Generated theme-colors (tracked via theme-switcher upstream)
+qt5ct/
+qt6ct/
+gtk-3.0/assets/
+gtk-3.0/bookmarks
+gtk-3.0/settings.ini
+gtk-3.0/settings.ini.*
+gtk-4.0/assets
+gtk-4.0/settings.ini
+rofi/\\
+rofi/config.rasi
+rofi/theme.rasi
+rofi/theme-switcher.rasi
+
+# Note-taking (personal content)
+obsidian/
+quickshell.backup.*/
+
+# Editor / template noise
+**/.vscode/
+nvim/.gitignore
+nvim/LICENSE
+nvim/README.md
+nvim/stylua.toml
+nvim/.neoconf.json
+
+# System / app artifact dirs
+Arduino\ IDE/
+arduino-ide/
+Code\ Industry/
+cursor/
+cosmic-initial-setup-done
+htop/
+Thunar/
+walker/
+
+# Terminal noise
+foot/colors.ini
+kitty/
+alacritty/

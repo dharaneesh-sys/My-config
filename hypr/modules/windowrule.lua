@@ -22,11 +22,16 @@ hl.window_rule({ match = { class = "wallpaper-switch" }, center = true })
 
 -- wallpaper-app: new GTK wallpaper selector
 hl.window_rule({ match = { title = "Wallpaper Selector" }, float = true })
-hl.window_rule({ match = { title = "Wallpaper Selector" }, size = "800 300" })
+hl.window_rule({ match = { title = "Wallpaper Selector" }, size = "860 340" })
 hl.window_rule({ match = { title = "Wallpaper Selector" }, center = true })
 hl.window_rule({ match = { title = "Wallpaper Selector" }, border_size = 0 })
 hl.window_rule({ match = { title = "Wallpaper Selector" }, no_shadow = true })
 hl.window_rule({ match = { title = "Wallpaper Selector" }, animation = "gnomed" })
+-- preview popup — inherits float from dialog hint, no size override needed
+hl.window_rule({ match = { title = "^Preview" }, float = true })
+hl.window_rule({ match = { title = "^Preview" }, center = true })
+hl.window_rule({ match = { title = "^Preview" }, border_size = 0 })
+hl.window_rule({ match = { title = "^Preview" }, animation = "slide" })
 
 -- theme-selector: GTK4 visual theme picker
 hl.window_rule({ match = { title = "Theme Selector" }, float = true })
