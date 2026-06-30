@@ -1,0 +1,7 @@
+#!/usr/bin/env bash
+
+LAST="$HOME/.cache/wallpaper/last_wallpaper"
+[ -f "$LAST" ] || exit 0
+
+awww img "$(cat "$LAST")"
+matugen image "$(cat "$LAST")"

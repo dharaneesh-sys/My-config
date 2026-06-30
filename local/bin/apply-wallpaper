@@ -1,0 +1,24 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+CACHE_DIR="$HOME/.cache/wallpaper"
+LAST="$CACHE_DIR/last_wallpaper"
+
+mkdir -p "$CACHE_DIR"
+
+# If missing, pick a fallback wallpaper
+if [[ ! -f "$LAST" ]]; then
+  echo "last_wallpaper missing → selecting fallback"
+
+  FALLBACK="$(find "$HOME/Pictures/wallpaper/" -type f | shuf -n 1)"
+  echo "$FALLBACK" >"$LAST"
+fi
+
+IMG="$(<"$LAST")"
+
+# Ensure daemon
+pgrep -x awww-daemon >/dev/null || awww-daemon &
+sleep 0.2
+
+awww img "$IMG"
+matugen image "$IMG"

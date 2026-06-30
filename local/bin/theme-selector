@@ -1,0 +1,410 @@
+#!/usr/bin/env python3
+"""
+theme-selector — Visual theme picker for Hyprland
+Browse ~/.config/hypr/themes/ in a list, preview each theme's color palette,
+click or press Enter to apply via theme-switcher.
+
+The window opens at 700×450, centered, and stays above other windows.
+Arrow keys navigate, Enter selects, Escape closes.
+"""
+
+import os
+import subprocess
+import sys
+import threading
+
+import gi
+
+gi.require_version("Gtk", "4.0")
+gi.require_version("Gdk", "4.0")
+from gi.repository import Gdk, Gtk, GLib, Pango
+
+# ---------------------------------------------------------------------------
+# Constants
+# ---------------------------------------------------------------------------
+
+WINDOW_WIDTH = 400
+WINDOW_HEIGHT = 500
+THEMES_DIR = os.path.expanduser("~/.config/hypr/themes")
+CURRENT_THEME_FILE = os.path.expanduser("~/.cache/wallpaper/current_theme")
+THEME_SWITCHER = os.path.expanduser("~/.local/bin/theme-switcher")
+
+PALETTE_KEYS = ["primary", "secondary", "tertiary", "error", "surface", "background"]
+PALETTE_LABELS = {
+    "primary": "Primary",
+    "secondary": "Secondary",
+    "tertiary": "Tertiary",
+    "error": "Error",
+    "surface": "Surface",
+    "background": "Bg",
+}
+
+
+# ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
+
+
+def _luminance(hex_color):
+    """Calculate relative luminance (0–1) of a hex color for text contrast."""
+    h = hex_color.lstrip("#")
+    if len(h) < 6:
+        return 0.5
+    r, g, b = int(h[0:2], 16), int(h[2:4], 16), int(h[4:6], 16)
+    return (0.299 * r + 0.587 * g + 0.114 * b) / 255
+
+
+def _draw_circle(area, cr, width, height, hex_color):
+    """Draw a filled circle with the given hex color using Cairo."""
+    h = hex_color.lstrip("#")
+    if len(h) >= 6:
+        r, g, b = int(h[0:2], 16) / 255, int(h[2:4], 16) / 255, int(h[4:6], 16) / 255
+    else:
+        r = g = b = 0.5
+    cr.arc(width / 2, height / 2, min(width, height) / 2 - 1, 0, 2 * 3.14159)
+    cr.set_source_rgb(r, g, b)
+    cr.fill()
+
+
+def read_palette(theme_dir):
+    """Return a dict of color_name → hex string for a theme's palette file."""
+    colors = {}
+    palette_path = os.path.join(theme_dir, "palette")
+    if os.path.isfile(palette_path):
+        with open(palette_path) as f:
+            for line in f:
+                line = line.strip()
+                if not line or line.startswith("#"):
+                    continue
+                if "=" in line:
+                    k, v = line.split("=", 1)
+                    colors[k.strip()] = v.strip()
+    return colors
+
+
+# ---------------------------------------------------------------------------
+# GTK Application
+# ---------------------------------------------------------------------------
+
+
+class ThemeSelector(Gtk.Window):
+    """Main theme-selector window."""
+
+    def __init__(self):
+        super().__init__()
+
+        self.set_title("Theme Selector")
+        self.set_default_size(WINDOW_WIDTH, WINDOW_HEIGHT)
+        self.connect("realize", self._center_window)
+
+        # ESC to close (CAPTURE phase so it catches before ListBox)
+        ctrl = Gtk.EventControllerKey()
+        ctrl.set_propagation_phase(Gtk.PropagationPhase.CAPTURE)
+        ctrl.connect("key-pressed", self._on_key_press)
+        self.add_controller(ctrl)
+
+        # State
+        self.current_theme = ""
+        self.cards = []  # list of card widgets for index lookup
+        self._swatch_css_parts = []  # accumulated per-card CSS rules
+
+        # Read current theme
+        self._read_current_theme()
+
+        self._apply_css()
+        self._build_ui()
+        self._load_themes()
+
+    # -- Current theme -------------------------------------------------------
+
+    def _read_current_theme(self):
+        """Read current theme name from cache file."""
+        if os.path.isfile(CURRENT_THEME_FILE):
+            try:
+                with open(CURRENT_THEME_FILE) as f:
+                    self.current_theme = f.read().strip()
+            except Exception:
+                pass
+
+    # -- Window centering (GTK4) -------------------------------------------
+
+    def _center_window(self, window):
+        """Center the window on the current monitor (GTK4 compatible)."""
+        surface = window.get_surface()
+        if surface:
+            display = Gdk.Display.get_default()
+            if display:
+                monitor = display.get_monitor_at_surface(surface)
+                if monitor:
+                    geometry = monitor.get_geometry()
+                    width = window.get_width()
+                    height = window.get_height()
+                    x = geometry.x + (geometry.width - width) // 2
+                    y = geometry.y + (geometry.height - height) // 2
+                    try:
+                        surface.move(x, y)
+                    except Exception:
+                        pass
+
+    # -- Key handling -------------------------------------------------------
+
+    def _on_key_press(self, controller, keyval, keycode, state):
+        if keyval == Gdk.KEY_Escape:
+            self.close()
+            return True
+        return False
+
+    # -- CSS ----------------------------------------------------------------
+
+    def _apply_css(self):
+        provider = Gtk.CssProvider()
+        css_data = b"""
+        window {
+            background: linear-gradient(135deg, #1c1c24 0%, #1e1e2e 100%);
+        }
+        .theme-row {
+            background: rgba(40, 40, 50, 0.85);
+            border: 1px solid rgba(255, 255, 255, 0.07);
+            border-radius: 10px;
+            margin: 3px 6px;
+        }
+        row:selected {
+            border-color: rgba(255, 255, 255, 0.7);
+        }
+        row:hover {
+            border-color: rgba(255, 255, 255, 0.2);
+        }
+        row:focus {
+            border-color: rgba(255, 255, 255, 0.35);
+        }
+        .theme-name {
+            font-weight: 700;
+            font-size: 15px;
+            font-family: "Inter", "Cantarell", "Noto Sans", sans-serif;
+        }
+        .current-badge {
+            color: rgba(255, 255, 255, 0.5);
+            font-size: 11px;
+            font-weight: 700;
+        }
+        .header-label {
+            font-weight: 700;
+            font-size: 22px;
+            color: #f0f0fa;
+            font-family: "Inter", "Cantarell", "Noto Sans", sans-serif;
+        }
+        .hint-label {
+            font-size: 12px;
+            color: #7a7a8a;
+            padding-bottom: 6px;
+        }
+        scrollbar {
+            background: rgba(255, 255, 255, 0.02);
+        }
+        scrollbar slider {
+            background: rgba(255, 255, 255, 0.08);
+            border-radius: 4px;
+            min-width: 6px;
+        }
+        scrollbar slider:hover {
+            background: rgba(255, 255, 255, 0.15);
+        }
+        """
+        provider.load_from_data(css_data)
+        Gtk.StyleContext.add_provider_for_display(
+            Gdk.Display.get_default(),
+            provider,
+            Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION,
+        )
+
+    # -- UI construction ----------------------------------------------------
+
+    def _build_ui(self):
+        # Main vertical box
+        vbox = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
+        vbox.set_margin_start(12)
+        vbox.set_margin_end(12)
+        vbox.set_margin_top(12)
+        vbox.set_margin_bottom(12)
+        self.set_child(vbox)
+
+        # Header
+        header = Gtk.Label(label="Select a Theme")
+        header.css_classes = ["header-label"]
+        header.set_halign(Gtk.Align.CENTER)
+        vbox.append(header)
+
+        # Hint
+        hint = Gtk.Label(
+            label="Use arrow keys to navigate · Enter to apply · Esc to close"
+        )
+        hint.css_classes = ["hint-label"]
+        hint.set_halign(Gtk.Align.CENTER)
+        vbox.append(hint)
+
+        # Scrolled window with ListBox (single-column vertical list)
+        scrolled = Gtk.ScrolledWindow()
+        scrolled.set_vexpand(True)
+        scrolled.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
+        vbox.append(scrolled)
+
+        self.listbox = Gtk.ListBox()
+        self.listbox.set_selection_mode(Gtk.SelectionMode.SINGLE)
+        scrolled.set_child(self.listbox)
+
+        # ListBox row-activated (mouse click or Enter)
+        self.listbox.connect("row-activated", self.on_row_activated)
+
+    # -- Theme loading ------------------------------------------------------
+
+    def _load_themes(self):
+        if not os.path.isdir(THEMES_DIR):
+            self._show_no_themes(f"Themes directory not found:\n{THEMES_DIR}")
+            return
+
+        entries = sorted(
+            e
+            for e in os.listdir(THEMES_DIR)
+            if os.path.isdir(os.path.join(THEMES_DIR, e))
+        )
+
+        if not entries:
+            self._show_no_themes(f"No theme directories in:\n{THEMES_DIR}")
+            return
+
+        for name in entries:
+            theme_dir = os.path.join(THEMES_DIR, name)
+            colors = read_palette(theme_dir)
+            row = self._make_row(name, colors)
+            self.listbox.append(row)
+            self.cards.append(row)
+
+        # Auto-select current theme row
+        for i, card in enumerate(self.cards):
+            if getattr(card, "theme_name", None) == self.current_theme:
+                list_row = self.listbox.get_row_at_index(i)
+                if list_row:
+                    self.listbox.select_row(list_row)
+                break
+
+        # Apply accumulated per-row/per-swatch CSS rules
+        if self._swatch_css_parts:
+            css_provider = Gtk.CssProvider()
+            css_provider.load_from_data("\n".join(self._swatch_css_parts).encode())
+            Gtk.StyleContext.add_provider_for_display(
+                Gdk.Display.get_default(),
+                css_provider,
+                Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION,
+            )
+
+    def _show_no_themes(self, message):
+        """Show a centered error label when no themes are found."""
+        label = Gtk.Label(label=message)
+        label.set_halign(Gtk.Align.CENTER)
+        label.set_valign(Gtk.Align.CENTER)
+        label.css_classes = ["hint-label"]
+        # Remove the scrolled window placeholder by replacing content
+        parent = self.listbox.get_parent()  # scrolled window
+        if parent:
+            parent.set_child(label)
+
+    def _make_row(self, theme_name, colors):
+        """Create a list row for one theme with color circles + name."""
+        idx = len(self.cards)
+
+        hex_bg = colors.get("background", "#000000")
+
+        # --- Unique CSS classes for this row ---
+
+        # Row background
+        bg_cls = f"rb{idx}"
+        self._swatch_css_parts.append(f".{bg_cls} {{ background: {hex_bg}; }}")
+
+        # Theme name color (auto-contrasted against background)
+        text_color = (
+            "rgba(0,0,0,0.8)" if _luminance(hex_bg) > 0.45 else "rgba(255,255,255,0.9)"
+        )
+        nm_cls = f"nm{idx}"
+        self._swatch_css_parts.append(f".{nm_cls} {{ color: {text_color}; }}")
+
+        # --- Build the row ---
+
+        row = Gtk.ListBoxRow()
+        row.theme_name = theme_name
+        row.set_css_classes(["theme-row", bg_cls])
+
+        hbox = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
+        hbox.set_margin_start(14)
+        hbox.set_margin_end(14)
+        hbox.set_margin_top(10)
+        hbox.set_margin_bottom(10)
+        row.set_child(hbox)
+
+        # Color circles (6 palette colors as small circular swatches)
+        for key in PALETTE_KEYS:
+            hex_val = colors.get(key, "#000000")
+            circle = Gtk.DrawingArea()
+            circle.set_size_request(14, 14)
+            circle.set_draw_func(_draw_circle, hex_val)
+            label_name = PALETTE_LABELS.get(key, key)
+            circle.set_tooltip_text(f"{label_name}: {hex_val}")
+            hbox.append(circle)
+
+        # Theme name
+        name_label = Gtk.Label(label=theme_name)
+        name_label.set_halign(Gtk.Align.START)
+        name_label.set_valign(Gtk.Align.CENTER)
+        name_label.set_ellipsize(Pango.EllipsizeMode.END)
+        name_label.css_classes = ["theme-name", nm_cls]
+        hbox.append(name_label)
+
+        # Spacer
+        spacer = Gtk.Label()
+        spacer.set_hexpand(True)
+        hbox.append(spacer)
+
+        # Current badge
+        badge = Gtk.Label(label="● Current")
+        badge.css_classes = ["current-badge", nm_cls]
+        badge.set_valign(Gtk.Align.CENTER)
+        badge.set_visible(theme_name == self.current_theme)
+        hbox.append(badge)
+
+        return row
+
+    def on_row_activated(self, listbox, row):
+        """Handle theme selection (Enter or mouse click)."""
+        theme_name = getattr(row, "theme_name", None)
+        if not theme_name:
+            return
+
+        self.destroy()
+
+        def _run_switcher():
+            try:
+                subprocess.run(
+                    [THEME_SWITCHER, theme_name],
+                    capture_output=True,
+                    timeout=30,
+                )
+            except Exception as exc:
+                print(
+                    f"theme-selector: failed to run theme-switcher: {exc}",
+                    file=sys.stderr,
+                )
+                import traceback
+                traceback.print_exc()
+
+        threading.Thread(target=_run_switcher, daemon=True).start()
+
+
+# ---------------------------------------------------------------------------
+# Entry point
+# ---------------------------------------------------------------------------
+
+if __name__ == "__main__":
+    loop = GLib.MainLoop()
+    app = ThemeSelector()
+    app.connect("destroy", lambda w: loop.quit())
+    app.present()
+    loop.run()

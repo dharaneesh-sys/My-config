@@ -1,0 +1,124 @@
+#!/usr/bin/env bash
+# wallpaper-switch — interactive wallpaper switcher with live preview
+# Dependencies: fzf, matugen, awww, chafa (for preview)
+# Usage: wallpaper-switch [--dir DIR] [--mode dark|light|amoled]
+
+WALL_DIR="${WALLPAPER_DIR:-$HOME/Pictures/wallpaper}"
+MODE="dark"
+
+while [[ $# -gt 0 ]]; do
+  case $1 in
+  --dir | -d)
+    WALL_DIR="$2"
+    shift 2
+    ;;
+  --mode | -m)
+    MODE="$2"
+    shift 2
+    ;;
+  -h | --help)
+    echo "Usage: wallpaper-switch [--dir DIR] [--mode dark|light|amoled]"
+    echo "  -d, --dir   DIR    wallpaper directory (default: ~/Pictures/wallpaper)"
+    echo "  -m, --mode  MODE   matugen color mode: dark, light, amoled (default: dark)"
+    exit 0
+    ;;
+  *)
+    echo "Unknown option: $1"
+    exit 1
+    ;;
+  esac
+done
+
+# ── dependency checks ────────────────────────────────────────────────────────
+need() { command -v "$1" &>/dev/null || {
+  echo "error: '$1' not found in PATH" >&2
+  exit 1
+}; }
+need fzf
+need matugen
+need awww
+
+if ! command -v chafa &>/dev/null; then
+  echo "warning: 'chafa' not found — install it for image previews (pacman -S chafa)" >&2
+  PREVIEW_CMD='echo "(install chafa for live preview)"'
+else
+  PREVIEW_CMD='echo "  $(basename "$wall")" && echo && chafa --size=$(( ($(tput cols) / 2) - 2 ))x$(( $(tput lines) - 8 )) --stretch "$wall"'
+fi
+
+# ── wallpaper directory ──────────────────────────────────────────────────────
+if [[ ! -d "$WALL_DIR" ]]; then
+  echo "error: directory not found: $WALL_DIR" >&2
+  exit 1
+fi
+
+mapfile -d '' WALLS < <(find "$WALL_DIR" -maxdepth 1 \
+  \( -iname '*.jpg' -o -iname '*.jpeg' -o -iname '*.png' -o -iname '*.webp' \) \
+  -print0 | sort -z)
+
+if [[ ${#WALLS[@]} -eq 0 ]]; then
+  echo "error: no images found in $WALL_DIR" >&2
+  exit 1
+fi
+
+# ── current wallpaper marker ─────────────────────────────────────────────────
+CACHE_FILE="${XDG_CACHE_HOME:-$HOME/.cache}/current-wallpaper"
+CURRENT=""
+[[ -f "$CACHE_FILE" ]] && CURRENT=$(cat "$CACHE_FILE")
+
+# ── apply ────────────────────────────────────────────────────────────────────
+apply() {
+  local wall="$1"
+  echo
+  echo "  applying: $(basename "$wall")  [mode: $MODE]"
+
+  matugen image "$wall" --mode "$MODE" || {
+    echo "error: matugen failed" >&2
+    return 1
+  }
+
+  awww img "$wall" \
+    --transition-type any \
+    --transition-step 15 \
+    --transition-fps 60 || {
+    echo "error: awww failed" >&2
+    return 1
+  }
+
+  echo "$(basename "$wall")" >"$CACHE_FILE"
+  echo "  done."
+}
+
+# ── build fzf input (full paths, display as basenames with current marker) ───
+CHOSEN=$(
+  for w in "${WALLS[@]}"; do echo "$w"; done | fzf \
+    --prompt="  wallpaper > " \
+    --height=100% \
+    --layout=reverse \
+    --border=rounded \
+    --info=inline \
+    --no-sort \
+    --preview-window="right:50%:wrap" \
+    --preview="
+    wall={}
+    name=\$(basename \"\$wall\")
+
+    if [[ \"\$name\" == \"$CURRENT\" ]]; then
+      echo \"  ● current\"
+      echo
+    fi
+    $PREVIEW_CMD
+  " \
+    --header="  mode: $MODE   |   Enter to apply   Esc to quit" \
+    --header-first \
+    --with-nth="1" \
+    --delimiter="/" \
+    --nth="-1" \
+    --marker="●"
+)
+
+[[ -z "$CHOSEN" ]] && {
+  echo "cancelled."
+  exit 0
+}
+#~/.config/waybar/scripts/launch.sh
+apply "$CHOSEN"

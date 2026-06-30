@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+
+swayimg \
+  --config="general.mode=gallery" \
+  --config="general.size=900,600" \
+  "$HOME/Pictures/wallpaper"
