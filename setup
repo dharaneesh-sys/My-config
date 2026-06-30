@@ -1,0 +1,53 @@
+#!/usr/bin/env bash
+
+if ! git clone "https://github.com/dharaneesh-sys/My-config.git" /tmp/My-config; then
+  exit
+fi
+
+printf "Cloning repository to tmp \n Making Backup of config directory \n"
+if ! [[ -d ~/.config.bak ]]; then
+  mv ~/.config/ ~/.config.bak
+else
+  mv ~/.config/ ~/.config.backup
+fi
+
+echo "Moving config"
+
+mv /tmp/My-config ~/.config
+
+echo "Moving wallpapers to appropriate directory"
+
+cd ~/.config && mv ~/.config/wallpapers/ ~/Pictures/ && mv ~/.config/themes/ ~/Pictures/Themes/
+
+echo "Moving scripts to local/bin"
+
+if ! [[ -d ~/.local/bin.bak ]]; then
+  mv ~/.local/bin/ ~/.local/bin.bak/
+else
+  mv ~/.local/bin/ ~/.local/bin.backup/
+fi
+
+mv ~/.config/local/bin/ ~/.local/bin/
+
+read -r -s -p "Enter sudo password: " passwd
+
+echo "$passwd" | sudo -S -v
+
+echo "Installing neccesary packages"
+
+sudo -S pacman -S --needed --noconfirm hyprlock waybar swaync ghostty tmux neovim cava rofi networkmanager \
+  topgrade wlogout
+
+echo "Installing from AUR"
+
+paru -S --noconfirm networkmanager_dmenu-git hyprland-git
+
+echo "Installing Hyprland Plugins"
+
+hyprpm add https://github.com/yayuuu/hyprland-scroll-overview.git
+
+hyprpm update
+
+hyprpm enable scrolloverview
+echo "Everything is Completed Good Luck!!!"
+unset passwd
