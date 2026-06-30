@@ -111,6 +111,7 @@ create-next-app-nodejs/
 cachyos-hello.json
 cachyos/
 Electron/
+rice-cooker/
 python/
 wireshark/
 vesktop/
@@ -154,7 +155,6 @@ go/telemetry/
 *.backup
 *cache*/
 quickshell.backup.*/
-nvchad/
 waybar.bak/
 wlogout.bak/
 __pycache__/
@@ -177,7 +177,6 @@ rofi/theme-switcher.rasi
 
 # Note-taking (personal content)
 obsidian/
-quickshell.backup.*/
 
 # Editor / template noise
 **/.vscode/
