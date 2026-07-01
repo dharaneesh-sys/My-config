@@ -33,6 +33,8 @@ read -r -s -p "Enter sudo password: " passwd
 
 echo "$passwd" | sudo -S -v
 
+unset passwd
+
 echo "Installing neccesary packages"
 
 sudo pacman -S --needed --noconfirm hyprlock waybar swaync ghostty tmux neovim cava rofi networkmanager \
@@ -59,5 +61,4 @@ if [[ "$option" == "n" ]]; then
   exit 0
 fi
 
-systemctl reboot
-unset passwd
+sudo systemctl reboot
