@@ -8,10 +8,11 @@ local mainMod = "SUPER"
 
 hl.bind(mainMod .. " + " .. "Q", hl.dsp.window.close())
 hl.bind(
-	mainMod .. " + " .. "M",
-	hl.dsp.exec_cmd("command -v hyprshutdown >/dev/null 2>&1 && hyprshutdown || hyprctl dispatch exit")
+    mainMod .. " + " .. "M",
+    hl.dsp.exec_cmd("command -v hyprshutdown >/dev/null 2>&1 && hyprshutdown || hyprctl dispatch exit")
 )
-hl.bind(mainMod.. "+" .. "SHIFT" .. "+" .. "D", hl.dsp.exec_cmd("opencode"))
+hl.bind("SUPER + SHIFT + Q", hl.dsp.exit())
+hl.bind(mainMod .. "+" .. "SHIFT" .. "+" .. "D", hl.dsp.exec_cmd("opencode"))
 hl.bind(mainMod .. " + " .. "E", hl.dsp.exec_cmd(fileManager))
 hl.bind(mainMod .. " + " .. "R", hl.dsp.exec_cmd("~/.config/waybar/scripts/launch.sh"))
 hl.bind(mainMod .. " + " .. "B", hl.dsp.exec_cmd("brave"))
@@ -41,8 +42,8 @@ hl.bind(mainMod .. " + " .. "SHIFT" .. " + " .. "T", function()
 end)
 hl.bind(mainMod .. " + " .. "ALT" .. " + " .. "P", hl.dsp.exec_cmd("systemctl suspend"))
 hl.bind(
-	mainMod .. " + " .. "SHIFT" .. " + " .. "W",
-	hl.dsp.exec_cmd("gtk-launch brave-hnpfjngllnobngcgfapefoaidbinmjnm-Default.desktop")
+    mainMod .. " + " .. "SHIFT" .. " + " .. "W",
+    hl.dsp.exec_cmd("gtk-launch brave-hnpfjngllnobngcgfapefoaidbinmjnm-Default.desktop")
 )
 hl.bind(mainMod .. "+" .. "grave", hl.dsp.workspace.toggle_special("magic"))
 hl.bind(mainMod .. " + " .. "SHIFT" .. " + " .. "code:201", hl.dsp.exec_cmd(terminal))
@@ -53,22 +54,22 @@ hl.bind(mainMod .. " + " .. "S", hl.dsp.exec_cmd("gtk-launch brave-cinhimbnkkaeo
 --hl.dispatch(hl.dsp.exec_cmd("ghostty --gtk-single-instance=true"))
 --end)
 hl.bind("SUPER + RETURN", function()
-	hl.dispatch(hl.dsp.exec_cmd("foot"))
+    hl.dispatch(hl.dsp.exec_cmd("foot"))
 end)
 --hl.bind("SUPER + Z", function()
 ----	hl.dispatch(hl.dsp.exec_cmd("skwd wall toggle"))
 --end)
 hl.bind("SUPER + A", function()
-	hl.dispatch(hl.dsp.exec_cmd("~/.local/bin/toggle-notes"))
+    hl.dispatch(hl.dsp.exec_cmd("~/.local/bin/toggle-notes"))
 end)
 hl.bind("ALT + space", function()
-	hl.dispatch(hl.dsp.exec_cmd("notify-send 'Windows sucks'"))
+    hl.dispatch(hl.dsp.exec_cmd("notify-send 'Windows sucks'"))
 end)
 -- hyprland.lua
 hl.bind("SUPER + D", function()
-	if hl.plugin and hl.plugin.scrolloverview then
-		hl.plugin.scrolloverview.overview("toggle")
-	end
+    if hl.plugin and hl.plugin.scrolloverview then
+        hl.plugin.scrolloverview.overview("toggle")
+    end
 end)
 
 -- Move focus
@@ -81,10 +82,10 @@ hl.bind(mainMod .. " + " .. "l", hl.dsp.focus({ direction = "r" }))
 hl.bind(mainMod .. " + " .. "k", hl.dsp.focus({ direction = "u" }))
 hl.bind(mainMod .. " + " .. "j", hl.dsp.focus({ direction = "d" }))
 
-hl.bind(mainMod .. " + SHIFT + left",  hl.dsp.window.move({ direction = "l" }))
+hl.bind(mainMod .. " + SHIFT + left", hl.dsp.window.move({ direction = "l" }))
 hl.bind(mainMod .. " + SHIFT + right", hl.dsp.window.move({ direction = "r" }))
-hl.bind(mainMod .. " + SHIFT + up",    hl.dsp.window.move({ direction = "u" }))
-hl.bind(mainMod .. " + SHIFT + down",  hl.dsp.window.move({ direction = "d" }))
+hl.bind(mainMod .. " + SHIFT + up", hl.dsp.window.move({ direction = "u" }))
+hl.bind(mainMod .. " + SHIFT + down", hl.dsp.window.move({ direction = "d" }))
 hl.bind(mainMod .. " + SHIFT + h", hl.dsp.window.move({ direction = "l" }))
 hl.bind(mainMod .. " + SHIFT + l", hl.dsp.window.move({ direction = "r" }))
 hl.bind(mainMod .. " + SHIFT + k", hl.dsp.window.move({ direction = "u" }))
@@ -130,8 +131,8 @@ hl.bind(mainMod .. " + " .. "mouse:273", hl.dsp.window.resize(), { mouse = true 
 hl.bind("Print", hl.dsp.exec_cmd("hyprshot -m region --output-folder ~/Pictures/Screenshots"))
 hl.bind(mainMod .. " + " .. "Print", hl.dsp.exec_cmd("hyprshot -m output --output-folder ~/Pictures/Screenshots"))
 hl.bind(
-	mainMod .. " + " .. "SHIFT" .. " + " .. "Print",
-	hl.dsp.exec_cmd("hyprshot -m window --output-folder ~/Pictures/Screenshots")
+    mainMod .. " + " .. "SHIFT" .. " + " .. "Print",
+    hl.dsp.exec_cmd("hyprshot -m window --output-folder ~/Pictures/Screenshots")
 )
 
 local MAX_ZOOM = 3
@@ -141,59 +142,59 @@ local ZOOM_TOGGLE_FACTOR = 1.5
 ---@param offset number
 ---@return nil
 local function zoom(offset)
-	local current = hl.get_config("cursor.zoom_factor")
-	if offset ~= nil then
-		current = current + offset
-	elseif current ~= MIN_ZOOM then
-		current = MIN_ZOOM
-	else
-		current = ZOOM_TOGGLE_FACTOR
-	end
-	current = math.max(MIN_ZOOM, math.min(MAX_ZOOM, current))
-	hl.config({ cursor = { zoom_factor = current } })
+    local current = hl.get_config("cursor.zoom_factor")
+    if offset ~= nil then
+        current = current + offset
+    elseif current ~= MIN_ZOOM then
+        current = MIN_ZOOM
+    else
+        current = ZOOM_TOGGLE_FACTOR
+    end
+    current = math.max(MIN_ZOOM, math.min(MAX_ZOOM, current))
+    hl.config({ cursor = { zoom_factor = current } })
 end
 
 hl.bind("SUPER + Z", zoom)
 hl.bind("SUPER + plus", function()
-	zoom(0.5)
+    zoom(0.5)
 end)
 hl.bind("SUPER + minus", function()
-	zoom(-0.5)
+    zoom(-0.5)
 end)
 
 hl.bind("SUPER + X", function()
-	hl.dispatch(hl.dsp.workspace.toggle_special("minimize"))
-	hl.dispatch(hl.dsp.window.move({ workspace = "+0" }))
-	hl.dispatch(hl.dsp.workspace.toggle_special("minimize"))
-	hl.dispatch(hl.dsp.window.move({ workspace = "special:minimize" }))
-	hl.dispatch(hl.dsp.workspace.toggle_special("minimize"))
+    hl.dispatch(hl.dsp.workspace.toggle_special("minimize"))
+    hl.dispatch(hl.dsp.window.move({ workspace = "+0" }))
+    hl.dispatch(hl.dsp.workspace.toggle_special("minimize"))
+    hl.dispatch(hl.dsp.window.move({ workspace = "special:minimize" }))
+    hl.dispatch(hl.dsp.workspace.toggle_special("minimize"))
 end)
 hl.bind("SUPER + F1", function()
-	local game_mode = (hl.get_config("animations.enabled") == false)
+    local game_mode = (hl.get_config("animations.enabled") == false)
 
-	if game_mode then
-		hl.exec_cmd("hyprctl reload")
-		return
-	end
+    if game_mode then
+        hl.exec_cmd("hyprctl reload")
+        return
+    end
 
-	hl.config({
-		general = {
-			gaps_in = 0,
-			gaps_out = 0,              -- Disable gaps
-			border_size = 0,
-		},
+    hl.config({
+        general = {
+            gaps_in = 0,
+            gaps_out = 0, -- Disable gaps
+            border_size = 0,
+        },
 
-		animations = {
-			enabled = false, -- Disable animations
-		},
+        animations = {
+            enabled = false, -- Disable animations
+        },
 
-		-- Disable blur, shadow and window rounding
-		decoration = {
-			shadow = { enabled = false },
-			blur = { enabled = false },
-			rounding = 0,
-		}
-	})
+        -- Disable blur, shadow and window rounding
+        decoration = {
+            shadow = { enabled = false },
+            blur = { enabled = false },
+            rounding = 0,
+        }
+    })
 end)
 -- -- Layout
 -- hl.bind(mainMod .. " + " .. "period", hl.dsp.layout("move+col"))

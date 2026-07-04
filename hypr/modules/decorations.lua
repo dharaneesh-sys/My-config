@@ -52,7 +52,7 @@ hl.config({
 			noise = 0.02,
 			passes = 6,
 			popups = 1,
-			size = 2,
+			size = 6,
 			special = 1,
 			vibrancy = 0.35,
 			vibrancy_darkness = 0.8,
@@ -83,7 +83,7 @@ hl.config({
 		gaps_out = 6,
 		resize_on_border = true,
 		allow_tearing = false,
-		border_size = 1,
+		border_size = 0,
 		col = {
 			active_border = { colors = {BORDER_ACTIVE_1}},
 			inactive_border = "rgba(00000000)",
