@@ -93,7 +93,7 @@ tmux set -g pane-active-border-style "fg=$COLOR_PRIMARY" 2>/dev/null
 # Message/mode text
 tmux set -g message-style "fg=$COLOR_ON_SURFACE,bg=default" 2>/dev/null
 tmux set -g message-command-style "fg=$COLOR_ON_SURFACE,bg=default" 2>/dev/null
-tmux set -g mode-style "fg=$COLOR_ON_SURFACE,bg=default" 2>/dev/null
+tmux set -g mode-style "fg=$COLOR_ON_SURFACE,bg=$COLOR_SURFACE_CONTAINER_HIGH" 2>/dev/null
 
 # Display panes overlay
 tmux set -g display-panes-colour "$COLOR_OUTLINE" 2>/dev/null

@@ -1,0 +1,110 @@
+{
+  "manifest_version": 3,
+  "version": "1.20260706.1406",
+  "name": "Ariadne",
+  "description": "Ariadne browser theme \u2014 generated from theme-switcher",
+  "icons": {
+    "16": "images/icon16.png",
+    "48": "images/icon48.png",
+    "128": "images/icon128.png"
+  },
+  "theme": {
+    "colors": {
+      "frame": [
+        10,
+        24,
+        22
+      ],
+      "frame_inactive": [
+        10,
+        24,
+        22
+      ],
+      "frame_incognito": [
+        4,
+        14,
+        13
+      ],
+      "frame_incognito_inactive": [
+        10,
+        24,
+        22
+      ],
+      "toolbar": [
+        15,
+        33,
+        31
+      ],
+      "tab_text": [
+        245,
+        226,
+        197
+      ],
+      "tab_background_text": [
+        196,
+        176,
+        154
+      ],
+      "bookmark_text": [
+        245,
+        226,
+        197
+      ],
+      "ntp_background": [
+        4,
+        14,
+        13
+      ],
+      "ntp_text": [
+        245,
+        226,
+        197
+      ],
+      "ntp_link": [
+        122,
+        217,
+        168
+      ],
+      "ntp_section": [
+        15,
+        33,
+        31
+      ],
+      "omnibox_text": [
+        245,
+        226,
+        197
+      ],
+      "omnibox_background": [
+        4,
+        14,
+        13
+      ],
+      "toolbar_button_icon": [
+        196,
+        176,
+        154
+      ],
+      "background_tab_inactive_text": [
+        196,
+        176,
+        154
+      ],
+      "toolbar_text": [
+        245,
+        226,
+        197
+      ],
+      "button_background": [
+        10,
+        24,
+        22
+      ]
+    },
+    "tints": {},
+    "properties": {
+      "ntp_background_alignment": "bottom",
+      "ntp_background_repeat": "no-repeat"
+    }
+  }
+}

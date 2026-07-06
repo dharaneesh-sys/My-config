@@ -1,0 +1,72 @@
+{
+  "centered_layout": {
+    "left_padding": 0.25
+  },
+  "autoscroll_on_clicks": true,
+  "horizontal_scroll_margin": 2.0,
+  "vertical_scroll_margin": 2.0,
+  "toolbar": {
+    "selections_menu": false
+  },
+  "scrollbar": {
+    "selected_text": true,
+    "selected_symbol": true
+  },
+  "drag_and_drop_selection": {
+    "enabled": true
+  },
+  "git_panel": {
+    "button": false
+  },
+  "debugger": {
+    "button": false
+  },
+  "status_bar": {
+    "cursor_position_button": false
+  },
+  "global_lsp_settings": {
+    "button": false
+  },
+  "tab_bar": {
+    "show_tab_bar_buttons": false,
+    "show_nav_history_buttons": false
+  },
+  "title_bar": {
+    "show_user_picture": false
+  },
+  "vim": {
+    "show_edit_predictions_in_normal_mode": true,
+    "toggle_relative_line_numbers": true
+  },
+  "vim_mode": true,
+  "terminal": {
+    "button": false,
+    "dock": "left"
+  },
+  "theme": {
+    "mode": "dark",
+    "light": "One Light",
+    "dark": "Ariadne"
+  },
+  "project_panel": {
+    "scrollbar": {
+      "horizontal_scroll": false
+    },
+    "default_width": 180.0,
+    "dock": "left",
+    "button": true
+  },
+  "outline_panel": {
+    "button": false
+  },
+  "collaboration_panel": {
+    "button": false
+  },
+  "agent": {
+    "button": false
+  },
+  "search": {
+    "button": false
+  },
+  "disable_ai": true
+}

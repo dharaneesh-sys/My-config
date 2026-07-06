@@ -1,0 +1,122 @@
+// fastfetch preset: nitch style (Arch logo)
+// Replicates the look of nitch — boxed layout, Arch Linux logo, color cycling, icons, and colors bar
+// Usage: fastfetch --config nitch
+{
+    "$schema": "https://github.com/fastfetch-cli/fastfetch/raw/master/doc/json_schema.json",
+    "logo": {
+        "type": "none"
+    },
+    "display": {
+        "separator": "",
+        "duration": {
+            "abbreviation": true,
+            "spaceBeforeUnit": "never"
+        },
+        "key": {
+            "width": 0
+        }
+    },
+    "modules": [
+        // ── "arch" ASCII logo (figlet smslant) ──
+        {
+            "type": "custom",
+            "format": "                     __ ",
+            "outputColor": "white"
+        },
+        {
+            "type": "custom",
+            "format": " ___ _  ____  ____  / / ",
+            "outputColor": "white"
+        },
+        {
+            "type": "custom",
+            "format": "/ _ `/ / __/ / __/ / _ \\",
+            "outputColor": "white"
+        },
+        {
+            "type": "custom",
+            "format": "\\_,_/ /_/    \\__/ /_//_/",
+            "outputColor": "white"
+        },
+        { "type": "custom", "format": "" },
+
+        // ── Box top ──
+        {
+            "type": "custom",
+            "format": "  ╭──────────────────╮",
+            "outputColor": "white"
+        },
+
+        // ── System info (color cycle: red → yellow → green → cyan → blue → magenta) ──
+        {
+            "type": "title",
+            "key": "  │  user       │ ",
+            "keyColor": "red",
+            "format": "{user-name}",
+            "fqdn": false
+        },
+        {
+            "type": "command",
+            "key": "  │  hname      │ ",
+            "keyColor": "yellow",
+            "text": "hostname",
+            "format": "{result}"
+        },
+        {
+            "type": "os",
+            "key": "  │  distro     │ ",
+            "keyColor": "green",
+            "format": "{pretty-name}"
+        },
+        {
+            "type": "kernel",
+            "key": "  │  kernel     │ ",
+            "keyColor": "cyan",
+            "format": "{release}"
+        },
+        {
+            "type": "uptime",
+            "key": "  │  uptime     │ ",
+            "keyColor": "blue"
+        },
+        {
+            "type": "shell",
+            "key": "  │  shell      │ ",
+            "keyColor": "magenta",
+            "format": "{pretty-name}"
+        },
+        {
+            "type": "packages",
+            "key": "  │  pkgs       │ ",
+            "keyColor": "red",
+            "format": "{all}"
+        },
+        {
+            "type": "memory",
+            "key": "  │  memory     │ ",
+            "keyColor": "yellow",
+            "format": "{used} | {total}"
+        },
+
+        // ── Box separator ──
+        {
+            "type": "custom",
+            "format": "  ├──────────────────┤",
+            "outputColor": "white"
+        },
+
+        // ── Colors bar (white, red, yellow, green, cyan, blue, magenta, black) ──
+        {
+            "type": "custom",
+            "format": "  │  colors     │ {#37} {#31} {#33} {#32} {#36} {#34} {#35} {#30}{#}",
+            "outputColor": "white"
+        },
+
+        // ── Box bottom ──
+        {
+            "type": "custom",
+            "format": "  ╰──────────────────╯",
+            "outputColor": "white"
+        }
+    ]
+}

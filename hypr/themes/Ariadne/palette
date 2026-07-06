@@ -1,0 +1,67 @@
+# M3 Color Palette: Ariadne
+# Derived from ariadne.txt — dark teal/forest with warm cream & vibrant accents
+#
+# bg0  #040e0d   deepest dark teal
+# bg1  #0a1816   surface / dim
+# bg2  #0f211f   container
+# bg3  #152a26   container high
+# bg4  #1d3631   container highest / bright
+# fg   #f5e2c5   warm cream foreground
+# red  #ff6048   error
+# grn  #7ad9a8   primary (mint green)
+# blu  #5fc8d4   tertiary (sky blue)
+# pur  #e89aa8   secondary (rose)
+# orn  #ffa478   accent orange
+# yel  #f5cd5b   accent yellow
+# aqa  #3dd1b0   teal accent
+# gy2  #c4b09a   on_surface_variant / warm gray
+
+primary=#7ad9a8
+on_primary=#040e0d
+primary_container=#0f211f
+on_primary_container=#7ad9a8
+primary_fixed=#7ad9a8
+primary_fixed_dim=#5cb88a
+on_primary_fixed=#040e0d
+on_primary_fixed_variant=#0a1816
+secondary=#e89aa8
+on_secondary=#040e0d
+secondary_container=#0f211f
+on_secondary_container=#e89aa8
+secondary_fixed=#e89aa8
+secondary_fixed_dim=#c77a88
+on_secondary_fixed=#040e0d
+on_secondary_fixed_variant=#0a1816
+tertiary=#5fc8d4
+on_tertiary=#040e0d
+tertiary_container=#0f211f
+on_tertiary_container=#5fc8d4
+tertiary_fixed=#5fc8d4
+tertiary_fixed_dim=#40a8b4
+on_tertiary_fixed=#040e0d
+on_tertiary_fixed_variant=#0a1816
+error=#ff6048
+on_error=#040e0d
+error_container=#0f211f
+on_error_container=#ff6048
+surface=#0a1816
+on_surface=#f5e2c5
+surface_variant=#0f211f
+on_surface_variant=#c4b09a
+surface_container=#0f211f
+surface_container_low=#0a1816
+surface_container_lowest=#040e0d
+surface_container_high=#152a26
+surface_container_highest=#1d3631
+surface_dim=#0a1816
+surface_bright=#1d3631
+outline=#5a4d3e
+outline_variant=#152a26
+shadow=#000000
+scrim=#000000
+inverse_surface=#f5e2c5
+inverse_on_surface=#040e0d
+inverse_primary=#7ad9a8
+surface_tint=#7ad9a8
+source_color=#7ad9a8
+background=#0a1816

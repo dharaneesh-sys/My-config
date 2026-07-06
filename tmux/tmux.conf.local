@@ -376,6 +376,9 @@ tmux_conf_urlscan_options="--compact --dedupe"
 
 # this is the place to override or undo settings
 
+# default shell — must be set here so it survives when ~/.tmux.conf is removed
+set -g default-shell /usr/bin/fish
+
 # start with mouse mode enabled
 set -g mouse on
 

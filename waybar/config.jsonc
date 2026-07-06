@@ -3,7 +3,7 @@
   "position": "top",
   "height": 36,
   "spacing": 1,
-  "margin-top": 0,
+  "margin-top": 2,
   "margin-left": 0,
   "margin-right": 0,
   "exclusive": true,
@@ -79,22 +79,22 @@
     "max-length": 28
   },
   "network": {
-    "format-wifi": "    {essid}",
+    "format-wifi": "󰤨    {essid}",
     "format-ethernet": "󰈀 {bandwidthUpBytes}",
-    "format-disconnected": "    Off",
+    "format-disconnected": "󰤨     Off",
     "on-click": "nm-applet --indicator",
     "on-click-right": "networkmanager_dmenu",
     "interval": 2,
     "tooltip-format": "{essid}\n{ipaddr}\n{signalStrength}%"
   },
   "pulseaudio": {
-    "format": "{icon}  {volume}%",
-    "format-muted": "󰝟",
-    "format-bluetooth": "󰂯",
+    "format": "{icon}    {volume}%",
+    "format-muted": " ",
+    "format-bluetooth": " ",
     "format-icons": [
-      "󰕿",
-      "󰖀",
-      "󰕾"
+      "",
+      "",
+      ""
     ],
     "on-click": "pavucontrol",
     "on-scroll-up": "wpctl set-volume @DEFAULT_AUDIO_SINK@ 5%+",
@@ -106,18 +106,16 @@
       "warning": 30,
       "critical": 15
     },
-    "format": "{icon}  {capacity}%",
-    "format-charging": "󰂄 {capacity}%",
+    "format": "{icon}    {capacity}%",
+    "icon-size": 32,
+    "format-charging": "󰂅  {capacity}%",
     "format-plugged": "󰚥",
     "format-icons": [
-      "󰁺",
-      "󰁻",
-      "󰁼",
-      "󰁽",
-      "󰁾",
-      "󰁿",
-      "󰂀",
-      "󰁹"
+      "",
+      "",
+      "",
+      "",
+      ""
     ],
     "tooltip-format": "You don't have eyes do you?"
   },

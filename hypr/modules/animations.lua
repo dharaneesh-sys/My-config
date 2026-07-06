@@ -48,7 +48,7 @@ hl.animation({ leaf = "fadeDim",    enabled = true, speed = 5, bezier = "smooth"
 hl.animation({ leaf = "fadeLayers", enabled = true, speed = 4, bezier = "smooth" })
 
 -- Workspaces — slide with bounce (500ms)
-hl.animation({ leaf = "workspaces", enabled = true, speed = 3, bezier = "overshot", style = "slide" })
+hl.animation({ leaf = "workspaces", enabled = true, speed = 3, bezier = "snap", style = "slide" })
 hl.animation({
   leaf = "specialWorkspace",
   enabled = true,

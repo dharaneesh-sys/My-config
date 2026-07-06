@@ -1,12 +1,8 @@
 #!/usr/bin/env python3
-"""
-wallpaper-app — Visual wallpaper selector for Hyprland
-Browse ~/Pictures/Wallpapers/ thumbnails in a horizontal strip, click or press
-Enter to apply via awww.
+"""wallpaper-app — Visual wallpaper selector for Hyprland
 
-The window opens at 1000×280, centered, and stays above other windows.
-Use Left/Right arrows to navigate, Enter to select, Escape to close.
-No Hyprland window rules are needed — the app handles these itself.
+Browse ~/Pictures/Wallpapers/ thumbnails in a horizontal strip. Click to preview,
+then apply or cancel from the preview window.
 """
 
 import hashlib
@@ -34,8 +30,10 @@ CACHE_DIR = os.path.join(
     "wallpaper-app",
 )
 THUMB_SIZE = 180
-WINDOW_WIDTH = 800
-WINDOW_HEIGHT = 300
+WINDOW_WIDTH = 860
+WINDOW_HEIGHT = 340
+PREVIEW_WIDTH = 680
+PREVIEW_HEIGHT = 460
 IMAGE_EXTS = (".png", ".jpg", ".jpeg", ".webp", ".gif", ".bmp", ".avif")
 LOCK_FILE = os.path.join(CACHE_DIR, "lock")
 LAST_FILE = os.path.join(CACHE_DIR, "last")
@@ -55,31 +53,192 @@ AWWW_ARGS = [
     "2.5",
 ]
 
+# Catppuccin Mocha palette
+CTP = {
+    "base": "#1e1e2e",
+    "mantle": "#181825",
+    "crust": "#11111b",
+    "surface0": "#313244",
+    "surface1": "#45475a",
+    "surface2": "#585b70",
+    "overlay0": "#6c7086",
+    "overlay1": "#7f849c",
+    "text": "#cdd6f4",
+    "subtext0": "#a6adc8",
+    "subtext1": "#bac2de",
+    "blue": "#89b4fa",
+    "mauve": "#cba6f7",
+    "green": "#a6e3a1",
+    "red": "#f38ba8",
+    "peach": "#fab387",
+    "yellow": "#f9e2af",
+    "teal": "#94e2d5",
+    "sky": "#89dceb",
+    "pink": "#f5c2e7",
+    "rosewater": "#f5e0dc",
+}
+
+# ---------------------------------------------------------------------------
+# CSS — single app-wide stylesheet
+# ---------------------------------------------------------------------------
+
+APP_CSS = f"""
+window {{
+    background: linear-gradient(160deg, {CTP["base"]} 0%, {CTP["mantle"]} 100%);
+    font-family: "Inter", "Iosevka", sans-serif;
+}}
+
+/* Cards */
+.wallpaper-child {{
+    background: {CTP["surface0"]};
+    border: 1px solid {CTP["surface1"]};
+    border-radius: 14px;
+    padding: 8px;
+    transition: all 140ms cubic-bezier(0.25, 0.46, 0.45, 0.94);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}}
+.wallpaper-child:hover {{
+    border-color: {CTP["overlay0"]};
+    background: {CTP["surface1"]};
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.4);
+}}
+.wallpaper-child.selected {{
+    border-color: {CTP["blue"]};
+    background: rgba(137, 180, 250, 0.08);
+    box-shadow: 0 0 0 1.5px {CTP["blue"]}, 0 6px 24px rgba(137, 180, 250, 0.18);
+}}
+
+/* Thumbnail images */
+.thumb-image {{
+    border-radius: 10px;
+}}
+
+/* Labels */
+.header-label {{
+    font-weight: 700;
+    font-size: 16px;
+    color: {CTP["text"]};
+    letter-spacing: 0.01em;
+}}
+.child-label {{
+    font-size: 12px;
+    color: {CTP["subtext0"]};
+    padding-top: 2px;
+}}
+.status-label {{
+    font-size: 12px;
+    color: {CTP["overlay1"]};
+    font-weight: 500;
+}}
+.key-hint {{
+    font-size: 11px;
+    color: {CTP["overlay0"]};
+    font-weight: 400;
+}}
+
+/* Separator */
+.separator {{
+    background: {CTP["surface0"]};
+    min-height: 1px;
+    margin: 4px 0;
+}}
+
+/* Scrollbar */
+scrollbar {{
+    background: rgba(0, 0, 0, 0.18);
+    border-radius: 5px;
+}}
+scrollbar slider {{
+    background: {CTP["surface2"]};
+    border-radius: 5px;
+    min-width: 6px;
+    min-height: 6px;
+    transition: background 120ms ease;
+}}
+scrollbar slider:hover {{
+    background: {CTP["overlay0"]};
+}}
+scrollbar slider:active {{
+    background: {CTP["blue"]};
+}}
+
+/* Preview window */
+.preview-window {{
+    background: {CTP["crust"]};
+    border: 1px solid {CTP["surface1"]};
+}}
+.preview-image {{
+    border-radius: 10px;
+}}
+.preview-filename {{
+    font-size: 15px;
+    font-weight: 600;
+    color: {CTP["text"]};
+}}
+.preview-resolution {{
+    font-size: 12px;
+    color: {CTP["overlay1"]};
+    font-weight: 500;
+}}
+.preview-path {{
+    font-size: 10px;
+    color: {CTP["overlay0"]};
+    font-family: "Iosevka Term", monospace;
+}}
+.preview-separator {{
+    background: {CTP["surface0"]};
+    min-height: 1px;
+}}
+
+/* Buttons */
+.preview-cancel {{
+    background: {CTP["surface0"]};
+    color: {CTP["subtext0"]};
+    border: 1px solid {CTP["surface1"]};
+    border-radius: 10px;
+    padding: 7px 22px;
+    font-size: 13px;
+    font-weight: 600;
+    transition: all 120ms ease;
+}}
+.preview-cancel:hover {{
+    background: {CTP["surface1"]};
+    color: {CTP["text"]};
+    border-color: {CTP["surface2"]};
+}}
+
+.preview-apply {{
+    background: {CTP["blue"]};
+    color: {CTP["base"]};
+    border: none;
+    border-radius: 10px;
+    padding: 7px 22px;
+    font-size: 13px;
+    font-weight: 700;
+    transition: all 120ms ease;
+}}
+.preview-apply:hover {{
+    background: {CTP["sky"]};
+    box-shadow: 0 4px 14px rgba(137, 180, 250, 0.3);
+}}
+"""
+
 # ---------------------------------------------------------------------------
 # Thumbnail cache
 # ---------------------------------------------------------------------------
 
 
 def get_cache_key(path: str) -> str:
-    """Return MD5 hexdigest of the absolute path."""
     return hashlib.md5(os.path.abspath(path).encode()).hexdigest()
 
 
 def get_thumb_path(path: str) -> str:
-    """Return the cached thumbnail path for a given wallpaper."""
     return os.path.join(CACHE_DIR, get_cache_key(path) + ".png")
 
 
 def ensure_thumbnails(wall_dir, cache_dir, progress_callback=None):
-    """Scan wall_dir, generate missing thumbnails, return list of
-    (thumb_path, filename, full_path).
-
-    If *progress_callback* is provided it will be called with
-    ``(current, total)`` for each image processed.
-    """
     os.makedirs(cache_dir, exist_ok=True)
 
-    # Gather image files, sorted by name
     files = []
     for entry in sorted(os.listdir(wall_dir)):
         full = os.path.join(wall_dir, entry)
@@ -93,7 +252,6 @@ def ensure_thumbnails(wall_dir, cache_dir, progress_callback=None):
         fname = os.path.basename(src)
         dst = get_thumb_path(src)
 
-        # Skip if cached thumbnail exists and is newer than source
         if os.path.isfile(dst):
             src_mtime = os.path.getmtime(src)
             dst_mtime = os.path.getmtime(dst)
@@ -103,7 +261,6 @@ def ensure_thumbnails(wall_dir, cache_dir, progress_callback=None):
                     progress_callback(idx, total)
                 continue
 
-        # Generate thumbnail via ImageMagick
         try:
             subprocess.run(
                 [
@@ -126,7 +283,6 @@ def ensure_thumbnails(wall_dir, cache_dir, progress_callback=None):
                 progress_callback(idx, total)
             continue
 
-        # Verify the thumbnail was actually created
         if os.path.isfile(dst):
             results.append((dst, fname, src))
         else:
@@ -142,16 +298,31 @@ def ensure_thumbnails(wall_dir, cache_dir, progress_callback=None):
 
 
 # ---------------------------------------------------------------------------
+# Shared CSS provider
+# ---------------------------------------------------------------------------
+
+_css_provider = None
+
+
+def _ensure_css():
+    global _css_provider
+    if _css_provider is not None:
+        return
+    _css_provider = Gtk.CssProvider()
+    _css_provider.load_from_data(APP_CSS.encode())
+    screen = Gdk.Screen.get_default()
+    if screen:
+        Gtk.StyleContext.add_provider_for_screen(
+            screen, _css_provider, Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION
+        )
+
+
+# ---------------------------------------------------------------------------
 # Single-instance lock
 # ---------------------------------------------------------------------------
 
 
 def acquire_lock() -> bool:
-    """Acquire a lock file to prevent multiple instances.
-
-    Returns True if the lock was acquired, False if another instance is
-    already running.
-    """
     os.makedirs(os.path.dirname(LOCK_FILE), exist_ok=True)
     try:
         fd = os.open(LOCK_FILE, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
@@ -163,15 +334,183 @@ def acquire_lock() -> bool:
 
 
 def release_lock():
-    """Remove the lock file."""
     try:
         if os.path.isfile(LOCK_FILE):
             with open(LOCK_FILE) as f:
                 pid_str = f.read().strip()
             if pid_str == str(os.getpid()):
                 os.unlink(LOCK_FILE)
-            # If owned by another pid, leave it alone
     except Exception:
+        pass
+
+
+# ---------------------------------------------------------------------------
+# Image utilities
+# ---------------------------------------------------------------------------
+
+
+def load_pixbuf(path, max_w, max_h):
+    """Load an image scaled to fit within max_w x max_h, preserving aspect."""
+    try:
+        pixbuf = GdkPixbuf.Pixbuf.new_from_file_at_size(path, max_w, max_h)
+        if pixbuf:
+            return pixbuf
+    except Exception:
+        pass
+    try:
+        pixbuf = GdkPixbuf.Pixbuf.new_from_file(path)
+        if pixbuf:
+            w = pixbuf.get_width()
+            h = pixbuf.get_height()
+            scale = min(max_w / w, max_h / h, 1.0)
+            new_w = max(int(w * scale), 1)
+            new_h = max(int(h * scale), 1)
+            return pixbuf.scale_simple(new_w, new_h, GdkPixbuf.InterpType.BILINEAR)
+    except Exception:
+        pass
+    return None
+
+
+def get_image_resolution(path):
+    """Return 'WxH' string or empty string on failure."""
+    try:
+        result = subprocess.run(
+            ["identify", "-format", "%wx%h", path],
+            capture_output=True,
+            timeout=10,
+        )
+        if result.returncode == 0:
+            return result.stdout.decode().strip()
+    except Exception:
+        pass
+    return ""
+
+
+# ---------------------------------------------------------------------------
+# Preview popup
+# ---------------------------------------------------------------------------
+
+
+class PreviewWindow(Gtk.Window):
+    """Modal preview overlay for a wallpaper."""
+
+    def __init__(self, parent, full_path, filename, on_apply):
+        super().__init__(type=Gtk.WindowType.TOPLEVEL)
+        self.set_transient_for(parent)
+        self.set_attached_to(parent)
+        self.set_title(f"Preview — {filename}")
+        self.set_modal(True)
+        self.set_position(Gtk.WindowPosition.CENTER_ON_PARENT)
+        self.set_default_size(PREVIEW_WIDTH, PREVIEW_HEIGHT)
+        self.set_type_hint(Gdk.WindowTypeHint.DIALOG)
+        self.set_decorated(True)
+        self.full_path = full_path
+        self.on_apply = on_apply
+
+        self.set_border_width(0)
+        self.get_style_context().add_class("preview-window")
+
+        self.connect("key-press-event", self._on_key)
+        self.connect("destroy", self._on_destroy)
+
+        self._build_ui(full_path, filename)
+        self.show_all()
+        self.present()  # Force focus on Wayland
+
+    def _build_ui(self, full_path, filename):
+        vbox = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
+        vbox.set_margin_start(16)
+        vbox.set_margin_end(16)
+        vbox.set_margin_top(16)
+        vbox.set_margin_bottom(16)
+        self.add(vbox)
+
+        # Image area
+        img_max_w = PREVIEW_WIDTH - 32
+        img_max_h = PREVIEW_HEIGHT - 170
+        pixbuf = load_pixbuf(full_path, img_max_w, img_max_h)
+        if pixbuf:
+            image = Gtk.Image.new_from_pixbuf(pixbuf)
+        else:
+            image = Gtk.Image.new_from_icon_name(
+                "image-x-generic", Gtk.IconSize.DIALOG
+            )
+        image.get_style_context().add_class("preview-image")
+        image.set_halign(Gtk.Align.CENTER)
+        image.set_valign(Gtk.Align.CENTER)
+        vbox.pack_start(image, expand=True, fill=True, padding=0)
+
+        # Gap
+        vbox.pack_start(Gtk.Box(), expand=False, fill=False, padding=10)
+
+        # Separator
+        sep = Gtk.HSeparator()
+        sep.get_style_context().add_class("preview-separator")
+        vbox.pack_start(sep, expand=False, fill=False, padding=0)
+
+        # Gap
+        vbox.pack_start(Gtk.Box(), expand=False, fill=False, padding=10)
+
+        # Info row: filename | resolution
+        info_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=12)
+        info_box.set_halign(Gtk.Align.CENTER)
+
+        fname_label = Gtk.Label(label=filename)
+        fname_label.get_style_context().add_class("preview-filename")
+        info_box.pack_start(fname_label, expand=False, fill=False, padding=0)
+
+        res_text = get_image_resolution(full_path)
+        if res_text:
+            dot = Gtk.Label(label="·")
+            dot.get_style_context().add_class("preview-resolution")
+            info_box.pack_start(dot, expand=False, fill=False, padding=4)
+            res_label = Gtk.Label(label=res_text)
+            res_label.get_style_context().add_class("preview-resolution")
+            info_box.pack_start(res_label, expand=False, fill=False, padding=0)
+
+        vbox.pack_start(info_box, expand=False, fill=False, padding=0)
+
+        # Path
+        path_label = Gtk.Label(label=full_path)
+        path_label.get_style_context().add_class("preview-path")
+        path_label.set_halign(Gtk.Align.CENTER)
+        path_label.set_ellipsize(True)
+        vbox.pack_start(path_label, expand=False, fill=False, padding=2)
+
+        # Gap
+        vbox.pack_start(Gtk.Box(), expand=False, fill=False, padding=8)
+
+        # Buttons
+        btn_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=10)
+        btn_box.set_halign(Gtk.Align.CENTER)
+
+        cancel_btn = Gtk.Button.new_with_label("Cancel")
+        cancel_btn.get_style_context().add_class("preview-cancel")
+        cancel_btn.connect("clicked", lambda _: self.destroy())
+        btn_box.pack_start(cancel_btn, expand=False, fill=False, padding=0)
+
+        apply_btn = Gtk.Button.new_with_label("Set Wallpaper")
+        apply_btn.get_style_context().add_class("preview-apply")
+        apply_btn.grab_default()
+        apply_btn.connect("clicked", lambda _: self._do_apply())
+        btn_box.pack_start(apply_btn, expand=False, fill=False, padding=0)
+
+        vbox.pack_start(btn_box, expand=False, fill=False, padding=0)
+
+    def _do_apply(self):
+        self.on_apply(self.full_path)
+        self.destroy()
+
+    def _on_key(self, widget, event):
+        if event.keyval == 0xFF1B:  # Escape
+            self.destroy()
+            return True
+        if event.keyval == 0xFF0D:  # Enter
+            self._do_apply()
+            return True
+        return False
+
+    def _on_destroy(self, *args):
         pass
 
 
@@ -192,130 +531,75 @@ class WallpaperApp(Gtk.Window):
         self.set_keep_above(True)
         self.set_border_width(0)
 
-        # Signal handling
         self.connect("key-press-event", self.on_key_press)
         signal.signal(signal.SIGINT, self._handle_sigint)
 
-        # Data
-        self.wallpapers = []  # list of (thumb_path, filename, full_path)
+        self.wallpapers = []
         self.generating = False
         self.selected_child = None
+        self._preview = None
         self._nm_counter = 0
         self._nm_css_rules = []
 
-        # Apply CSS
-        self._apply_css()
-
-        # Build UI
+        _ensure_css()
         self._build_ui()
 
     def _handle_sigint(self, signum, frame):
-        """Clean exit on Ctrl+C."""
         Gtk.main_quit()
-
-    # -- CSS ----------------------------------------------------------------
-
-    def _apply_css(self):
-        css_provider = Gtk.CssProvider()
-        css_data = b"""
-        window {
-            background: linear-gradient(135deg, #1c1c24 0%, #1e1e2e 100%);
-        }
-        .wallpaper-child {
-            background: rgba(40, 40, 50, 0.85);
-            border: 1px solid rgba(255, 255, 255, 0.07);
-            border-radius: 12px;
-            padding: 6px;
-        }
-        .wallpaper-child:hover {
-            border-color: rgba(255, 255, 255, 0.2);
-            background: rgba(50, 50, 62, 0.85);
-        }
-        .wallpaper-child.selected {
-            border-color: rgba(255, 255, 255, 0.7);
-            background: rgba(55, 55, 70, 0.9);
-        }
-        .header-label {
-            font-weight: 700;
-            font-size: 18px;
-            color: #f0f0fa;
-            font-family: "Inter", "Cantarell", sans-serif;
-        }
-        .status-label {
-            font-size: 12px;
-            color: #7a7a8a;
-        }
-        .thumb-image {
-            border-radius: 8px;
-        }
-        .separator {
-            background: rgba(255, 255, 255, 0.06);
-            min-height: 1px;
-        }
-        scrollbar {
-            background: rgba(255, 255, 255, 0.02);
-        }
-        scrollbar slider {
-            background: rgba(255, 255, 255, 0.08);
-            border-radius: 4px;
-            min-width: 6px;
-            min-height: 6px;
-        }
-        scrollbar slider:hover {
-            background: rgba(255, 255, 255, 0.15);
-        }
-        """
-        css_provider.load_from_data(css_data)
-        screen = self.get_screen()
-        Gtk.StyleContext.add_provider_for_screen(
-            screen,
-            css_provider,
-            Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION,
-        )
 
     # -- UI construction ----------------------------------------------------
 
     def _build_ui(self):
-        # Main vertical box
         vbox = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
-        vbox.set_margin_start(12)
-        vbox.set_margin_end(12)
-        vbox.set_margin_top(12)
-        vbox.set_margin_bottom(12)
+        vbox.set_margin_start(14)
+        vbox.set_margin_end(14)
+        vbox.set_margin_top(14)
+        vbox.set_margin_bottom(14)
         self.add(vbox)
 
-        # Header
+        # Header row
+        header_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=0)
+        header_box.set_halign(Gtk.Align.FILL)
+
         self.header_label = Gtk.Label(label="Wallpaper Selector")
         self.header_label.get_style_context().add_class("header-label")
         self.header_label.set_halign(Gtk.Align.START)
-        self.header_label.set_margin_bottom(4)
-        vbox.pack_start(self.header_label, expand=False, fill=False, padding=0)
+        header_box.pack_start(self.header_label, expand=True, fill=True, padding=0)
+
+        key_hint = Gtk.Label(label="← → navigate  ·  ↵ preview  ·  Esc quit")
+        key_hint.get_style_context().add_class("key-hint")
+        key_hint.set_halign(Gtk.Align.END)
+        header_box.pack_end(key_hint, expand=False, fill=False, padding=0)
+
+        vbox.pack_start(header_box, expand=False, fill=False, padding=0)
 
         # Separator
         separator = Gtk.HSeparator()
         separator.get_style_context().add_class("separator")
         vbox.pack_start(separator, expand=False, fill=False, padding=0)
 
-        # Scrolled window with horizontal box (single-row strip)
+        # Scrolled window with horizontal box
         self.scrolled_window = Gtk.ScrolledWindow()
-        self.scrolled_window.set_policy(Gtk.PolicyType.AUTOMATIC, Gtk.PolicyType.NEVER)
-        self.scrolled_window.set_shadow_type(Gtk.ShadowType.IN)
+        self.scrolled_window.set_policy(
+            Gtk.PolicyType.AUTOMATIC, Gtk.PolicyType.NEVER
+        )
+        self.scrolled_window.set_shadow_type(Gtk.ShadowType.NONE)
         vbox.pack_start(self.scrolled_window, expand=True, fill=True, padding=0)
 
-        self.hbox = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=4)
+        self.hbox = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        self.hbox.set_margin_top(4)
+        self.hbox.set_margin_bottom(4)
         self.scrolled_window.add(self.hbox)
 
-        # Status bar (hidden until first-run generation)
+        # Status bar
         self.status_label = Gtk.Label(label="")
         self.status_label.get_style_context().add_class("status-label")
-        self.status_label.set_halign(Gtk.Align.CENTER)
         self.status_label.set_no_show_all(True)
-        vbox.pack_start(self.status_label, expand=False, fill=False, padding=4)
+        vbox.pack_start(self.status_label, expand=False, fill=False, padding=2)
 
     # -- Loading wallpapers -------------------------------------------------
 
     def load_wallpapers(self):
-        # Check wall dir exists
         if not os.path.isdir(WALL_DIR):
             self.show_error(
                 "Directory Not Found",
@@ -324,7 +608,6 @@ class WallpaperApp(Gtk.Window):
             )
             sys.exit(1)
 
-        # Check there are images
         has_images = any(
             f.lower().endswith(IMAGE_EXTS)
             for f in os.listdir(WALL_DIR)
@@ -338,7 +621,6 @@ class WallpaperApp(Gtk.Window):
             )
             sys.exit(1)
 
-        # Check awww-daemon is running (soft warning — will be checked again on apply)
         daemon_running = (
             subprocess.run(
                 ["pgrep", "-x", "awww-daemon"],
@@ -347,9 +629,11 @@ class WallpaperApp(Gtk.Window):
             == 0
         )
         if not daemon_running:
-            print("wallpaper-app: warning — awww-daemon is not running", file=sys.stderr)
+            print(
+                "wallpaper-app: warning — awww-daemon is not running",
+                file=sys.stderr,
+            )
 
-        # Generate / check thumbnails
         self.generating = True
 
         def progress_callback(current, total):
@@ -360,7 +644,6 @@ class WallpaperApp(Gtk.Window):
             self.generating = False
             GLib.idle_add(self._populate_wallpapers)
 
-        # Run thumbnail generation in a thread so the UI stays responsive
         from threading import Thread
 
         t = Thread(
@@ -374,43 +657,35 @@ class WallpaperApp(Gtk.Window):
     def _update_progress(self, current, total):
         self.status_label.set_no_show_all(False)
         self.status_label.show()
-        self.status_label.set_text(f"Generating thumbnails… {current}/{total}")
-        # Pulse the UI
+        self.status_label.set_text(f"Generating thumbnails…  {current}/{total}")
         while Gtk.events_pending():
             Gtk.main_iteration()
 
     def _populate_wallpapers(self):
-        # Hide progress
         self.status_label.set_no_show_all(True)
         self.status_label.hide()
 
-        # Remove any existing children
         for child in self.hbox.get_children():
             self.hbox.remove(child)
 
-        # Add wallpapers
         for thumb_path, fname, full_path in self.wallpapers:
             child = self._make_child(thumb_path, fname, full_path)
             self.hbox.pack_start(child, expand=False, fill=False, padding=0)
 
-        # Load per-label auto-contrast CSS (nm* pattern)
         if self._nm_css_rules:
             nm_provider = Gtk.CssProvider()
             nm_provider.load_from_data("\n".join(self._nm_css_rules).encode())
-            screen = self.get_screen()
             Gtk.StyleContext.add_provider_for_screen(
-                screen,
+                self.get_screen(),
                 nm_provider,
                 Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION + 1,
             )
 
-        # Update header
         count = len(self.wallpapers)
-        self.header_label.set_text(f"Wallpaper Selector — {count} wallpapers")
+        self.header_label.set_text(f"Wallpaper Selector  —  {count} wallpapers")
 
         self.show_all()
 
-        # If no thumbnails were generated and grid is empty, flag it
         if not self.wallpapers:
             self.show_error(
                 "No Wallpapers",
@@ -419,7 +694,7 @@ class WallpaperApp(Gtk.Window):
             )
             sys.exit(1)
 
-        # Select current wallpaper by default (from global cache)
+        # Select current wallpaper by default
         current_wp = ""
         if os.path.isfile(LAST_WALLPAPER):
             try:
@@ -432,7 +707,7 @@ class WallpaperApp(Gtk.Window):
         selected = False
         if current_wp and children:
             for child in children:
-                if getattr(child, 'full_path', None) == current_wp:
+                if getattr(child, "full_path", None) == current_wp:
                     self._select_child(child)
                     selected = True
                     break
@@ -440,44 +715,30 @@ class WallpaperApp(Gtk.Window):
             self._select_child(children[0])
 
     def _make_child(self, thumb_path, fname, full_path):
-        """Create a child widget for a single wallpaper."""
-        # Truncate name for display
-        display_name = (fname[:18] + "…") if len(fname) > 20 else fname
+        display_name = (fname[:18] + "\N{HORIZONTAL ELLIPSIS}") if len(fname) > 20 else fname
 
-        # Container
         box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=4)
         box.set_homogeneous(False)
 
-        # Thumbnail image
         try:
             pixbuf = GdkPixbuf.Pixbuf.new_from_file_at_size(
                 thumb_path, THUMB_SIZE, THUMB_SIZE
             )
             image = Gtk.Image.new_from_pixbuf(pixbuf)
         except Exception:
-            # Fallback: placeholder
             image = Gtk.Image.new_from_icon_name(
                 "image-x-generic", Gtk.IconSize.DIALOG
             )
         image.get_style_context().add_class("thumb-image")
         box.pack_start(image, expand=True, fill=True, padding=0)
 
-        # Label with auto-contrast class (nm* pattern from theme-selector)
         label = Gtk.Label(label=display_name)
         label.set_max_width_chars(18)
         label.set_ellipsize(True)
         label.set_xalign(0.5)
-        nm_cls = f"nm{self._nm_counter}"
-        self._nm_counter += 1
-        # Card background luminance-based text color
-        bg_r, bg_g, bg_b = 40, 40, 50
-        lum = (0.299 * bg_r + 0.587 * bg_g + 0.114 * bg_b) / 255
-        text_color = "rgba(0,0,0,0.8)" if lum > 0.45 else "rgba(255,255,255,0.9)"
-        self._nm_css_rules.append(f".{nm_cls} {{ color: {text_color}; font-size: 12px; }}")
-        label.get_style_context().add_class(nm_cls)
+        label.get_style_context().add_class("child-label")
         box.pack_start(label, expand=False, fill=False, padding=2)
 
-        # Wrap in EventBox for click handling and style
         child = Gtk.EventBox()
         child.add(box)
         child.get_style_context().add_class("wallpaper-child")
@@ -489,16 +750,14 @@ class WallpaperApp(Gtk.Window):
 
     # -- Actions ------------------------------------------------------------
 
-    def on_wallpaper_activated(self, child):
+    def on_wallpaper_activated(self, full_path):
         """Apply the selected wallpaper."""
-        full_path = child.full_path if hasattr(child, 'full_path') else None
         if not full_path or not os.path.isfile(full_path):
             self.show_error("Error", "Selected wallpaper file not found.")
             return
 
         fname = os.path.basename(full_path)
 
-        # Notify
         try:
             subprocess.run(
                 ["notify-send", "-t", "1500", "Wallpaper", f"Setting: {fname}"],
@@ -508,7 +767,6 @@ class WallpaperApp(Gtk.Window):
         except Exception:
             pass
 
-        # Ensure daemon is running
         daemon_running = (
             subprocess.run(
                 ["pgrep", "-x", "awww-daemon"],
@@ -528,9 +786,7 @@ class WallpaperApp(Gtk.Window):
                         stdout=subprocess.DEVNULL,
                         stderr=subprocess.DEVNULL,
                     )
-                    # Give it a moment to start
                     time.sleep(0.3)
-                    # Re-check
                     daemon_running = (
                         subprocess.run(
                             ["pgrep", "-x", "awww-daemon"],
@@ -551,7 +807,6 @@ class WallpaperApp(Gtk.Window):
             else:
                 return
 
-        # Apply wallpaper
         try:
             result = subprocess.run(
                 [*AWWW_ARGS, full_path],
@@ -566,7 +821,6 @@ class WallpaperApp(Gtk.Window):
             self.show_error("Error", f"Failed to run awww:\n{exc}")
             return
 
-        # Save last wallpaper (app-local cache)
         try:
             os.makedirs(os.path.dirname(LAST_FILE), exist_ok=True)
             with open(LAST_FILE, "w") as f:
@@ -574,15 +828,16 @@ class WallpaperApp(Gtk.Window):
         except Exception as exc:
             print(f"wallpaper-app: failed to write last file: {exc}", file=sys.stderr)
 
-        # Also save to global theme cache (read by theme-switcher, wallpaper-to-theme.sh)
         try:
             os.makedirs(THEME_CACHE_DIR, exist_ok=True)
             with open(LAST_WALLPAPER, "w") as f:
                 f.write(full_path + "\n")
         except Exception as exc:
-            print(f"wallpaper-app: failed to write last_wallpaper: {exc}", file=sys.stderr)
+            print(
+                f"wallpaper-app: failed to write last_wallpaper: {exc}",
+                file=sys.stderr,
+            )
 
-        # If Dynamic theme is active, regenerate palette in background
         if os.path.isfile(CURRENT_THEME_FILE):
             try:
                 with open(CURRENT_THEME_FILE) as f:
@@ -600,20 +855,17 @@ class WallpaperApp(Gtk.Window):
                     daemon=True,
                 ).start()
 
-        # Done — close immediately (Dynamic update runs in background)
         Gtk.main_quit()
 
     # -- Selection helpers --------------------------------------------------
 
     def _select_child(self, child):
-        """Highlight *child* as selected and scroll it into view."""
         if self.selected_child:
             self.selected_child.get_style_context().remove_class("selected")
         self.selected_child = child
         child.get_style_context().add_class("selected")
         child.grab_focus()
 
-        # Scroll to center the selected child
         hadj = self.scrolled_window.get_hadjustment()
         if hadj:
             alloc = child.get_allocation()
@@ -622,16 +874,40 @@ class WallpaperApp(Gtk.Window):
             target = max(0, min(target, hadj.get_upper() - page_size))
             hadj.set_value(target)
 
+    def _open_preview(self, child):
+        """Open the preview popup for *child*."""
+        full_path = getattr(child, "full_path", None)
+        filename = getattr(
+            child, "filename", os.path.basename(full_path or "")
+        )
+
+        if not full_path or not os.path.isfile(full_path):
+            self.show_error("Error", "Wallpaper file not found.")
+            return
+
+        # Destroy existing preview if any
+        if self._preview is not None:
+            try:
+                self._preview.destroy()
+            except Exception:
+                pass
+
+        self._preview = PreviewWindow(
+            self,
+            full_path,
+            filename,
+            on_apply=self.on_wallpaper_activated,
+        )
+
     def on_child_clicked(self, child, event):
-        """Handle mouse click on a wallpaper child."""
+        """Click selects + opens preview popup."""
         self._select_child(child)
-        self.on_wallpaper_activated(child)
+        self._open_preview(child)
         return True
 
     # -- Keyboard -----------------------------------------------------------
 
     def on_key_press(self, widget, event):
-        """Handle keyboard shortcuts."""
         if event.keyval == 0xFF1B:  # Escape
             Gtk.main_quit()
             return True
@@ -640,7 +916,6 @@ class WallpaperApp(Gtk.Window):
         if not children:
             return False
 
-        # Find currently selected index
         current_idx = 0
         if self.selected_child and self.selected_child in children:
             current_idx = children.index(self.selected_child)
@@ -655,9 +930,9 @@ class WallpaperApp(Gtk.Window):
             self._select_child(children[prev_idx])
             return True
 
-        if event.keyval == 0xFF0D:  # Enter / Return
+        if event.keyval == 0xFF0D:  # Enter
             if self.selected_child:
-                self.on_wallpaper_activated(self.selected_child)
+                self._open_preview(self.selected_child)
             return True
 
         return False
@@ -665,7 +940,6 @@ class WallpaperApp(Gtk.Window):
     # -- Dialogs ------------------------------------------------------------
 
     def show_error(self, title, message):
-        """Display an error dialog."""
         dialog = Gtk.MessageDialog(
             transient_for=self,
             flags=Gtk.DialogFlags.MODAL,
@@ -678,7 +952,6 @@ class WallpaperApp(Gtk.Window):
         dialog.destroy()
 
     def show_yes_no(self, title, message):
-        """Display a Yes/No question dialog. Returns response."""
         dialog = Gtk.MessageDialog(
             transient_for=self,
             flags=Gtk.DialogFlags.MODAL,
@@ -697,9 +970,7 @@ class WallpaperApp(Gtk.Window):
 # ---------------------------------------------------------------------------
 
 if __name__ == "__main__":
-    # Single-instance lock
     if not acquire_lock():
-        # Another instance is already running — notify and exit
         try:
             subprocess.run(
                 [
