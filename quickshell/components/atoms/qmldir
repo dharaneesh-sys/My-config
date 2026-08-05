@@ -1,0 +1,10 @@
+module qs.components.atoms
+PillShape     0.1 PillShape.qml
+ShellIcon     0.1 ShellIcon.qml
+ShellText     0.1 ShellText.qml
+ShellButton   0.1 ShellButton.qml
+ShellToggle   0.1 ShellToggle.qml
+ShellSlider   0.1 ShellSlider.qml
+SmoothSlider  0.1 SmoothSlider.qml
+SectionHeader 0.1 SectionHeader.qml
+ListItem      0.1 ListItem.qml

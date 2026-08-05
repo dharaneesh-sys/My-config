@@ -1,0 +1,17 @@
+module qs.components.molecules
+PanelHeader       0.1 PanelHeader.qml
+SearchBar         0.1 SearchBar.qml
+QuickToggle       0.1 QuickToggle.qml
+SliderRow         0.1 SliderRow.qml
+SmoothSliderRow   0.1 SmoothSliderRow.qml
+ToggleRow         0.1 ToggleRow.qml
+ButtonRow         0.1 ButtonRow.qml
+SettingRow        0.1 SettingRow.qml
+SettingsCard      0.1 SettingsCard.qml
+ThemeCard         0.1 ThemeCard.qml
+WallpaperCard     0.1 WallpaperCard.qml
+MediaMiniCard     0.1 MediaMiniCard.qml
+NotificationCard  0.1 NotificationCard.qml
+AppRow            0.1 AppRow.qml
+QuickSettingsGrid 0.1 QuickSettingsGrid.qml
+QuickSettingsGridModel 0.1 QuickSettingsGridModel.qml
