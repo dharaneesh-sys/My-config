@@ -1,0 +1,12 @@
+module qs.panels
+ControlCenter      0.1 ControlCenter.qml
+Launcher           0.1 Launcher.qml
+ThemeSwitcher      0.1 ThemeSwitcher.qml
+WallpaperSelector  0.1 WallpaperSelector.qml
+NotificationCenter 0.1 NotificationCenter.qml
+MediaPlayer        0.1 MediaPlayer.qml
+Calendar           0.1 Calendar.qml
+Bluetooth          0.1 Bluetooth.qml
+WiFi               0.1 WiFi.qml
+Audio              0.1 Audio.qml
+PowerMenu          0.1 PowerMenu.qml

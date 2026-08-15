@@ -25,8 +25,8 @@ QtObject {
     readonly property bool dnd: NotificationState.dnd
 
     // ── Notifications (ListModel, reconciled in place) ─────────────
-    // NotificationService wholesale-reassigns NotificationState.notifications
-    // on every poll (and on dismiss/mark-read). A fresh JS array per poll
+    // NotificationState rebuilds notifications from the native server on
+    // every trackedNotifications change (and dismiss/mark-read). A fresh JS array per change
     // would destroy + recreate every NotificationCard delegate — breaking
     // hover state and causing flicker. Reconcile instead: remove stale
     // rows, setProperty only changed fields, append new. Steady-state
@@ -88,7 +88,7 @@ QtObject {
     readonly property bool hasNotifications: NotificationState.notifications.length > 0
 
     // ── Sync on state changes ──────────────────────────────────────
-    Connections {
+    property Connections _stateConn: Connections {
         target: NotificationState
         function onNotificationsChanged() { vm._syncNotifications() }
     }
@@ -106,6 +106,12 @@ QtObject {
 
     function markRead(id) {
         NotificationState.markReadRequested(id)
+    }
+
+    function actionsFor(id) { return NotificationState.actionsFor(id) }
+    function hasActionIconsFor(id) { return NotificationState.hasActionIconsFor(id) }
+    function invokeAction(id, actionIndex) {
+        NotificationState.invokeActionRequested(id, actionIndex)
     }
 
     function dismissAll() {

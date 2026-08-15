@@ -1,0 +1,23 @@
+module qs.viewmodels
+ControlCenterViewModel        0.1 ControlCenterViewModel.qml
+LauncherViewModel             0.1 LauncherViewModel.qml
+ThemeSwitcherViewModel        0.1 ThemeSwitcherViewModel.qml
+WallpaperSelectorViewModel    0.1 WallpaperSelectorViewModel.qml
+NotificationCenterViewModel   0.1 NotificationCenterViewModel.qml
+MediaPlayerViewModel          0.1 MediaPlayerViewModel.qml
+CalendarViewModel             0.1 CalendarViewModel.qml
+BluetoothViewModel            0.1 BluetoothViewModel.qml
+WiFiViewModel                 0.1 WiFiViewModel.qml
+AudioViewModel                0.1 AudioViewModel.qml
+PowerMenuViewModel            0.1 PowerMenuViewModel.qml
+AppearanceViewModel           0.1 AppearanceViewModel.qml
+BarAndPillViewModel           0.1 BarAndPillViewModel.qml
+MotionViewModel               0.1 MotionViewModel.qml
+ControlCenterSettingsViewModel 0.1 ControlCenterSettingsViewModel.qml
+LauncherSettingsViewModel      0.1 LauncherSettingsViewModel.qml
+NotificationSettingsViewModel  0.1 NotificationSettingsViewModel.qml
+ClockDateSettingsViewModel     0.1 ClockDateSettingsViewModel.qml
+MediaSettingsViewModel        0.1 MediaSettingsViewModel.qml
+KeybindsSettingsViewModel     0.1 KeybindsSettingsViewModel.qml
+AboutViewModel                0.1 AboutViewModel.qml
+SystemSettingsViewModel       0.1 SystemSettingsViewModel.qml

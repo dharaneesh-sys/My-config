@@ -1,0 +1,23 @@
+module qs.settings
+SettingsRouter                0.1 SettingsRouter.qml
+SettingsSidebar               0.1 SettingsSidebar.qml
+SettingsPageHeader            0.1 SettingsPageHeader.qml
+SettingsSearch                0.1 SettingsSearch.qml
+SettingsPage                  0.1 SettingsPage.qml
+SettingsPlaceholderPage       0.1 SettingsPlaceholderPage.qml
+SettingsStack                 0.1 SettingsStack.qml
+AppearancePage                0.1 AppearancePage.qml
+ThemePage                     0.1 ThemePage.qml
+WallpaperPage                 0.1 WallpaperPage.qml
+BarAndPillPage                0.1 BarAndPillPage.qml
+MotionPage                    0.1 MotionPage.qml
+ControlCenterPage             0.1 ControlCenterPage.qml
+LauncherPage                  0.1 LauncherPage.qml
+NotificationPage              0.1 NotificationPage.qml
+ClockDatePage                 0.1 ClockDatePage.qml
+MediaPage                    0.1 MediaPage.qml
+KeybindsPage                 0.1 KeybindsPage.qml
+AboutPage                    0.1 AboutPage.qml
+SystemPage                   0.1 SystemPage.qml
+singleton SettingsStore       SettingsStore.qml
+singleton SettingsSerializer  SettingsSerializer.qml

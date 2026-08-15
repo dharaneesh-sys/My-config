@@ -1,5 +1,0 @@
-singleton Theme Theme.qml
-singleton Motion Motion.qml
-singleton Flags Flags.qml
-singleton Devices Devices.qml
-singleton Battery Battery.qml

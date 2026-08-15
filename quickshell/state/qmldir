@@ -1,0 +1,18 @@
+module qs.state
+singleton ExpansionRegistry    ExpansionRegistry.qml
+singleton ExpansionManager     ExpansionManager.qml
+singleton SettingsState        SettingsState.qml
+singleton AudioState           AudioState.qml
+singleton BrightnessState      BrightnessState.qml
+singleton BatteryState         BatteryState.qml
+singleton BluetoothState       BluetoothState.qml
+singleton NetworkState         NetworkState.qml
+singleton MediaState           MediaState.qml
+singleton WallpaperState       WallpaperState.qml
+singleton IconRegistry          IconRegistry.qml
+singleton ThemeState           ThemeState.qml
+singleton LauncherState        LauncherState.qml
+singleton NotificationState    NotificationState.qml
+singleton NightLightState      NightLightState.qml
+singleton ClockState           ClockState.qml
+singleton PowerState           PowerState.qml

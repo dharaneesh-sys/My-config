@@ -5,233 +5,266 @@ import qs.metrics
 import qs.state
 import qs.settings
 import qs.motion
+import qs.components.atoms
 
 Item {
     id: pillPanel
 
     // ═══════════════════════════════════════════════════════════════
-    //  PillPanel — merged pill + expansion surface (Wave 1)
+    //  PillPanel — the pill bar (collapsed state only)
     //
-    //  ONE surface morphs IN-PLACE from the pill into the expanded
-    //  panel (the user-facing fix: "expand the pill, not a dropdown").
-    //
-    //  • Collapsed: a fully-rounded pill, clock only.
-    //  • Expanded:  the same surface grows down/wide, radius morphs
-    //               9999 → panelCornerRadius, panel content loads
-    //               below the pill area (which keeps the clock).
-    //  • Width/height/radius animate with the runtime spring config
-    //    (qs.motion → MotionConfig) so SettingsStore animation
-    //    settings actually drive the motion.
-    //  • NO scale / transformOrigin anywhere — pure geometry morph.
-    //
-    //  Window sizing contract: `width`/`height` are DISCRETE targets
-    //  (no Behavior), so the PanelWindow resizes exactly twice per
-    //  expand/collapse cycle instead of every animation frame.
-    //  The animated geometry lives on `surface` and drives the
-    //  window's opaque mask (Region { item: pillPanel.surface }).
+    //  Split architecture (Wave 2):
+    //  • The pill is a PERMANENT, fixed-size bar with a strut. It never
+    //    morphs or expands — its height is constant so tiling windows
+    //    are pushed by exactly the pill height, never the panel height.
+    //  • Expanded panels live in a SEPARATE window (PanelSurface) that
+    //    floats above tiling windows below the pill.
+    //  • Surface geometry is static: no width/height Behaviors, no
+    //    expanded-state bindings. The only motion is the press-scale.
     // ═══════════════════════════════════════════════════════════════
 
     // ── Public API ─────────────────────────────────────────────────
     /** Opaque/clickable region — Shell binds its mask to this. */
     readonly property alias surface: surface
+    /** The active visual is used by the layer-shell input mask. */
+    readonly property Item maskItem: noticeVisible ? noticeSurface : surface
 
-    /** Panel loader (used by tests). */
-    readonly property alias panelLoader: panelLoader
+    // ── Pill notification bridge ──────────────────────────────────
+    // Volume, brightness, and desktop notifications share one small OSD.
+    // Keeping the state here means the pill itself is the only animated
+    // surface: no extra popup window and no compositor geometry churn.
+    property bool noticeActive: false
+    property bool noticeReady: false
+    property string noticeIcon: "notifications"
+    property string noticeTitle: ""
+    property string noticeBody: ""
+    property real noticeValue: -1
+    readonly property bool noticeVisible: noticeActive && !ExpansionManager.isExpanded
+    // The expanded form settles below the top edge instead of touching it.
+    property real noticeDrop: noticeVisible ? 14 : 0
 
-    /** Input-catch MouseArea (used by tests). */
-    readonly property alias inputCatch: inputCatch
-
-    // ── Visibility ─────────────────────────────────────────────────
-    // Hidden only when the clock is disabled AND nothing is expanded.
-    visible: SettingsStore.clockShowInPill || ExpansionManager.isExpanded
-
-    // ── Discrete target size (window sizing — changes twice/cycle) ─
-    readonly property real _panelPreferredWidth: ExpansionRegistry.widthFor(ExpansionManager.activePanelId) || ShellMetrics.expandedWidth
-    readonly property real _panelPreferredHeight: ExpansionRegistry.heightFor(ExpansionManager.activePanelId) || 0
-
-    width: ExpansionManager.isExpanded
-           ? Math.max(ShellMetrics.pillWidth, _panelPreferredWidth)
-           : ShellMetrics.pillWidth
-
-    height: ExpansionManager.isExpanded
-            ? ShellMetrics.pillHeight + ShellMetrics.pillBottomMargin + _panelPreferredHeight + ShellMetrics.expandedPadding * 2
-            : ShellMetrics.pillHeight
-
-    // ── Input catch ────────────────────────────────────────────────
-    // Declared FIRST so it sits BEHIND the surface and content.
-    // Clicking empty panel background (not an interactive element)
-    // collapses the panel. Content's own MouseAreas win on top.
-    MouseArea {
-        id: inputCatch
-        anchors.fill: parent
-        visible: ExpansionManager.isExpanded
-        onClicked: ExpansionManager.requestCollapse()
+    function showNotice(icon, title, body, value) {
+        noticeIcon = icon
+        noticeTitle = title
+        noticeBody = body || ""
+        noticeValue = value === undefined ? -1 : value
+        noticeActive = true
+        noticeDismiss.restart()
     }
 
-    // ── The morphing surface (pill ↔ panel) ────────────────────────
+    // ── Visibility ─────────────────────────────────────────────────
+    // Hidden only when the clock is disabled. The pill is the only
+    // always-visible chrome — it is not tied to expansion state anymore.
+    visible: SettingsStore.clockShowInPill || noticeActive
+    // Expanded panels take the pill's visual position. Keep the pill item
+    // alive for the permanent layer-shell strut, but fade its chrome out.
+    opacity: ExpansionManager.isExpanded ? 0.0 : 1.0
+
+    Behavior on opacity {
+        NumberAnimation {
+            duration: MotionConfig.duration(Motion.duration.fast)
+            easing.type: Motion.easing.standard
+        }
+    }
+
+    // ── Fixed size (never changes) ─────────────────────────────────
+    width:  ShellMetrics.pillWidth
+    height: ShellMetrics.pillHeight
+
+    // ── The pill surface ───────────────────────────────────────────
     Rectangle {
         id: surface
-        anchors {
-            top: parent.top
-            horizontalCenter: parent.horizontalCenter
-        }
+        anchors.fill: parent
 
-        // Animated geometry — Behaviors below smooth the morph.
-        width: ExpansionManager.isExpanded
-               ? Math.max(ShellMetrics.pillWidth, pillPanel._panelPreferredWidth)
-               : ShellMetrics.pillWidth
-
-        height: ExpansionManager.isExpanded
-                ? ShellMetrics.pillHeight + ShellMetrics.pillBottomMargin + pillPanel._panelPreferredHeight + ShellMetrics.expandedPadding * 2
-                : ShellMetrics.pillHeight
-
-        // Corner radius morphs from fully-rounded pill → panel radius.
-        property real _cornerRadius: ExpansionManager.isExpanded
-                                     ? SettingsStore.panelCornerRadius
-                                     : ShellMetrics.pillCornerRadius
-
-        // Background morphs pill surface → panel surface.
-        color: ExpansionManager.isExpanded ? Colors.surface : Colors.pillBg
-        border.width: ExpansionManager.isExpanded ? Elevation.panel.borderWidth : Elevation.pill.borderWidth
-        border.color: ExpansionManager.isExpanded ? Colors.border : Colors.pillBorder
-        opacity: ShellMetrics.shellOpacity
+        // Solid matte pill (no glass transparency)
+        color: Colors.pillBg
+        radius: ShellMetrics.pillCornerRadius
+        border.width: Elevation.pill.borderWidth
+        border.color: Colors.pillBorder
         clip: true
+        opacity: pillPanel.noticeVisible ? 0.0 : 1.0
 
-        visible: ExpansionManager.isExpanded || height > 0
-
-        // ── Motion (runtime spring from qs.motion) ───────────────
-        Behavior on width {
-            enabled: MotionConfig.animationsEnabled
-            SpringAnimation {
-                spring:  MotionConfig.spring.stiffness
-                damping: MotionConfig.spring.damping
-                mass:    MotionConfig.spring.mass
-                epsilon: MotionConfig.spring.epsilon
-            }
-        }
-
-        Behavior on height {
-            enabled: MotionConfig.animationsEnabled
-            SpringAnimation {
-                spring:  MotionConfig.spring.stiffness
-                damping: MotionConfig.spring.damping
-                mass:    MotionConfig.spring.mass
-                epsilon: MotionConfig.spring.epsilon
-            }
-        }
-
-        Behavior on _cornerRadius {
-            enabled: MotionConfig.animationsEnabled
-            SpringAnimation {
-                spring:  MotionConfig.spring.stiffness
-                damping: MotionConfig.spring.damping
-                mass:    MotionConfig.spring.mass
-                epsilon: MotionConfig.spring.epsilon
-            }
-        }
-
-        Behavior on color {
-            enabled: MotionConfig.animationsEnabled
-            ColorAnimation {
+        Behavior on opacity {
+            NumberAnimation {
                 duration: MotionConfig.duration(Motion.duration.fast)
                 easing.type: Motion.easing.standard
             }
         }
 
-        // ── Pill area (top region, clock) ─────────────────────────
-        // Stays pillHeight tall at the top of the surface even when
-        // expanded — the clock rides the top of the grown panel.
-        Item {
-            id: pillArea
-            anchors {
-                top: parent.top
-                left: parent.left
-                right: parent.right
-            }
-            height: ShellMetrics.pillHeight
-
-            // Hover / press highlights (pill state only)
-            Rectangle {
-                anchors.fill: parent
-                radius: surface._cornerRadius
-                color: Colors.hoverOverlay
-                visible: pillToggle.containsMouse && !pillToggle.pressed && !ExpansionManager.isExpanded
-            }
-
-            Rectangle {
-                anchors.fill: parent
-                radius: surface._cornerRadius
-                color: Colors.pressedOverlay
-                visible: pillToggle.pressed && !ExpansionManager.isExpanded
-            }
-
-            // Clock — the ONLY pill content (reads ClockState)
-            Text {
-                id: clockLabel
-                anchors.centerIn: parent
-                text: ClockState.showSeconds ? ClockState.timeSeconds : ClockState.time
-                color: Colors.pillFg
-                font.family:    Typography.clock.family
-                font.pixelSize: Typography.clock.size
-                font.weight:    Typography.clock.weight
-            }
-
-            // Toggle: expand when collapsed, collapse when expanded.
-            MouseArea {
-                id: pillToggle
-                anchors.fill: parent
-                hoverEnabled: true
-                cursorShape: Qt.PointingHandCursor
-                onClicked: {
-                    if (ExpansionManager.isExpanded)
-                        ExpansionManager.requestCollapse()
-                    else
-                        ExpansionManager.requestExpand("control-center")
-                }
+        // Press feedback
+        scale: pillToggle.pressed ? 0.96 : 1.0
+        Behavior on scale {
+            NumberAnimation {
+                duration: MotionConfig.duration(Motion.duration.micro)
+                easing.type: Motion.easing.standard
             }
         }
 
-        // ── Panel content loader ──────────────────────────────────
-        // Resolves the active panel via ExpansionRegistry. Sits below
-        // the pill area with the panel's padding applied.
-        Loader {
-            id: panelLoader
-
-            anchors {
-                top: pillArea.bottom
-                topMargin: ShellMetrics.pillBottomMargin
-                left: parent.left
-                leftMargin: ShellMetrics.expandedPadding
-                right: parent.right
-                rightMargin: ShellMetrics.expandedPadding
-                bottom: parent.bottom
-                bottomMargin: ShellMetrics.expandedPadding
-            }
-
-            source: ExpansionManager.isExpanded
-                    ? (ExpansionRegistry.componentFor(ExpansionManager.activePanelId) || "")
-                    : ""
-
-            opacity: ExpansionManager.isExpanded ? 1.0 : 0.0
-
-            Behavior on opacity {
-                NumberAnimation {
-                    duration: MotionConfig.duration(Motion.panel.contentFadeIn)
-                    easing.type: Motion.easing.standard
-                }
-            }
-        }
-
-        // ── Placeholder (no panel loaded) ─────────────────────────
+        // ── Clock — the ONLY pill content (reads ClockState) ──────
         Text {
+            id: clockLabel
             anchors.centerIn: parent
-            visible: !panelLoader.item && ExpansionManager.activePanelId !== ""
-            text: "▸ " + ExpansionManager.activePanelId
-            color: Colors.fgMuted
-            font.family:    Typography.body.family
-            font.pixelSize: Typography.body.size
-            font.weight:    Typography.body.weight
-            opacity: panelLoader.opacity
+            text: ClockState.showSeconds ? ClockState.timeSeconds : ClockState.time
+            color: Colors.pillFg
+            font.family:    Typography.clock.family
+            font.pixelSize: Typography.clock.size
+            font.weight:    Typography.clock.weight
+        }
+
+        // ── Toggle: opens the control center ───────────────────────
+        // requestExpand handles the toggle-off case when the same
+        // panel is already open.
+        MouseArea {
+            id: pillToggle
+            anchors.fill: parent
+            hoverEnabled: true
+            enabled: !ExpansionManager.isExpanded
+            cursorShape: Qt.PointingHandCursor
+            onClicked: ExpansionManager.requestExpand("control-center")
         }
     }
+
+    // This starts at the pill's exact centre and expands sideways.  It is
+    // deliberately a single NumberAnimation (rather than a spring) so rapid
+    // media-key repeats cannot accumulate jitter.
+    Rectangle {
+        id: noticeSurface
+        z: 2
+        anchors.horizontalCenter: parent.horizontalCenter
+        anchors.verticalCenter: parent.verticalCenter
+        anchors.verticalCenterOffset: pillPanel.noticeDrop
+        width: pillPanel.noticeVisible ? Math.max(300, ShellMetrics.pillWidth) : ShellMetrics.pillWidth
+        height: pillPanel.noticeVisible ? Math.max(56, ShellMetrics.pillHeight) : ShellMetrics.pillHeight
+        radius: height / 2
+        color: Colors.pillBg
+        border.width: Elevation.pill.borderWidth
+        border.color: Colors.pillBorder
+        opacity: pillPanel.noticeVisible ? 1.0 : 0.0
+        visible: opacity > 0
+        clip: true
+
+        Behavior on width {
+            NumberAnimation { duration: MotionConfig.duration(Motion.duration.medium); easing.type: Motion.easing.decelerate }
+        }
+        Behavior on height {
+            NumberAnimation { duration: MotionConfig.duration(Motion.duration.fast); easing.type: Motion.easing.standard }
+        }
+        Behavior on opacity {
+            NumberAnimation { duration: MotionConfig.duration(Motion.duration.fast); easing.type: Motion.easing.standard }
+        }
+        Behavior on anchors.verticalCenterOffset {
+            NumberAnimation { duration: MotionConfig.duration(Motion.duration.medium); easing.type: Motion.easing.decelerate }
+        }
+
+        Row {
+            id: noticeRow
+            anchors.fill: parent
+            anchors.leftMargin: 14
+            anchors.rightMargin: 16
+            spacing: 10
+
+            ShellIcon {
+                anchors.verticalCenter: parent.verticalCenter
+                name: pillPanel.noticeIcon
+                iconSize: 22
+                iconColor: Colors.accent
+            }
+
+            Column {
+                anchors.verticalCenter: parent.verticalCenter
+                width: parent.width - noticeRow.spacing - 22 - (pillPanel.noticeValue >= 0 ? 66 : 0)
+                spacing: 1
+
+                Text {
+                    width: parent.width
+                    text: pillPanel.noticeTitle
+                    color: Colors.pillFg
+                    font.family: Typography.body.family
+                    font.pixelSize: Typography.body.size
+                    font.weight: Font.DemiBold
+                    elide: Text.ElideRight
+                }
+                Text {
+                    width: parent.width
+                    visible: pillPanel.noticeBody.length > 0
+                    text: pillPanel.noticeBody
+                    color: Colors.fgMuted
+                    font.family: Typography.caption.family
+                    font.pixelSize: Typography.caption.size
+                    elide: Text.ElideRight
+                }
+            }
+
+            Column {
+                visible: pillPanel.noticeValue >= 0
+                width: 56
+                anchors.verticalCenter: parent.verticalCenter
+                spacing: 4
+
+                Text {
+                    width: parent.width
+                    text: Math.round(pillPanel.noticeValue * 100) + "%"
+                    horizontalAlignment: Text.AlignRight
+                    color: Colors.pillFg
+                    font.family: Typography.caption.family
+                    font.pixelSize: Typography.caption.size
+                }
+                Rectangle {
+                    width: parent.width
+                    height: 3
+                    radius: height / 2
+                    color: Colors.sliderTrack
+                    Rectangle {
+                        width: parent.width * Math.max(0, Math.min(1, pillPanel.noticeValue))
+                        height: parent.height
+                        radius: parent.radius
+                        color: Colors.sliderFill
+                    }
+                }
+            }
+        }
+    }
+
+    Timer {
+        id: noticeDismiss
+        interval: Motion.notification.autoDismiss
+        repeat: false
+        onTriggered: pillPanel.noticeActive = false
+    }
+
+    Connections {
+        target: AudioState
+        function onVolumeChanged() {
+            if (!pillPanel.noticeReady) return
+            pillPanel.showNotice(AudioState.muted ? "volume_off" : "volume_up",
+                                 AudioState.muted ? "Sound muted" : "Volume",
+                                 "", AudioState.muted ? 0 : AudioState.volume)
+        }
+        function onMutedChanged() {
+            if (!pillPanel.noticeReady) return
+            pillPanel.showNotice(AudioState.muted ? "volume_off" : "volume_up",
+                                 AudioState.muted ? "Sound muted" : "Volume",
+                                 "", AudioState.muted ? 0 : AudioState.volume)
+        }
+    }
+
+    Connections {
+        target: BrightnessState
+        function onBrightnessChanged() {
+            if (!pillPanel.noticeReady) return
+            pillPanel.showNotice("brightness_high", "Brightness", "", BrightnessState.brightness)
+        }
+    }
+
+    Connections {
+        target: NotificationState
+        function onNotificationsChanged() {
+            if (!pillPanel.noticeReady || NotificationState.notifications.length === 0) return
+            var notification = NotificationState.notifications[0]
+            pillPanel.showNotice("notifications", notification.title || notification.appName || "Notification",
+                                 notification.body || notification.appName || "", -1)
+        }
+    }
+
+    Component.onCompleted: Qt.callLater(function() { pillPanel.noticeReady = true })
 }

@@ -1,276 +1,303 @@
-//@ pragma UseQApplication
-
-import QtQuick
+import QtCore
 import Quickshell
-import Quickshell.Io
 import Quickshell.Wayland
 import Quickshell.Hyprland
-import Quickshell.Services.Mpris
-import "Singletons"
+import QtQuick
 
-/**
- * Washi pill top shell. Each monitor carries two layer-shell windows:
- *
- *  - `reserve` is a zero-content strip that only claims an exclusive zone the
- *    height of the rest pill, so tiled windows always sit below the pill even
- *    while it is expanded or a surface is open.
- *  - `overlay` is a full-screen transparent Overlay layer hosting the single
- *    morphing pill anchored at top-centre. The pill never moves windows and is
- *    never re-parented; it just grows in place, so every surface grows out of
- *    the rest pill instead of popping up as a separate panel.
- *
- * Input is routed by the window mask. While the pill is collapsed the mask is
- * the pill rect only, so the rest of the screen clicks through to windows.
- * While the pill is expanded (hovered/pinned) or a surface is open the mask is
- * cleared so the whole layer catches clicks. A backdrop press dismisses, and
- * keyboard focus is taken on demand so Escape closes the open surface.
- */
+import qs.state
+import qs.metrics
+import qs.tokens
+import qs.windows
+import qs.keybinds
+import qs.services
+import qs.settings
+
 ShellRoot {
     id: root
 
-    property string openMon: ""
-    property string openSurface: ""
-    property string peekMon: ""
+    // ═══════════════════════════════════════════════════════════════
+    //  Quickshell Desktop Shell — Entry Point
+    //
+    //  Exactly three windows:
+    //    1. Shell         — PanelWindow (pill bar, permanent strut)
+    //    2. PanelSurface  — PanelWindow (floating expanded panel)
+    //    3. Settings      — FloatingWindow (sidebar + pages)
+    //
+    //  No PopupWindow instances. No other top-level windows.
+    // ═══════════════════════════════════════════════════════════════
 
-    function refresh() {
-        Hyprland.refreshMonitors();
-        Hyprland.refreshWorkspaces();
-        Hyprland.refreshToplevels();
+    // ─── Window 1: Shell (pill bar) ───────────────────────────────
+    Shell {
+        id: shellWindow
     }
 
-    Component.onCompleted: {
-        refresh();
-        Devices.restore();
+    // ─── Window 2: PanelSurface (floating expanded panel) ─────────
+    PanelSurface {
+        id: panelSurface
     }
 
-
-
-    PanelWindow {
-        id: inhibitWin
-        visible: Flags.keepAwake
-        implicitWidth: 1
-        implicitHeight: 1
-        color: "transparent"
-        exclusionMode: ExclusionMode.Ignore
-        WlrLayershell.layer: WlrLayer.Background
-        WlrLayershell.namespace: "pill-inhibit"
-        WlrLayershell.keyboardFocus: WlrKeyboardFocus.None
-        anchors { top: true; left: true }
-        IdleInhibitor { window: inhibitWin; enabled: Flags.keepAwake }
+    // ─── Window 3: Settings ──────────────────────────────────────
+    SettingsWindow {
+        id: settingsWindow
     }
 
-    /**
-     * Only these raw events can change what the pill renders (per-monitor
-     * active workspace, minimized toplevels, monitor hotplug). Everything
-     * else (window drags, resizes, title spam) must not trigger the triple
-     * model refresh, which costs three Hyprland IPC round-trips.
-     */
-    readonly property var refreshEvents: ({
-        workspace: true, workspacev2: true,
-        createworkspace: true, createworkspacev2: true,
-        destroyworkspace: true, destroyworkspacev2: true,
-        moveworkspace: true, moveworkspacev2: true,
-        renameworkspace: true, activespecial: true,
-        focusedmon: true, focusedmonv2: true,
-        openwindow: true, closewindow: true,
-        movewindow: true, movewindowv2: true,
-        fullscreen: true,
-        monitoradded: true, monitoraddedv2: true, monitorremoved: true
-    })
+    // ─── Icon font ───────────────────────────────────────────────
+    // Material Symbols Rounded is a ligature variable font. Register
+    // it explicitly with Qt's font database so ShellIcon's
+    // `font.family: Typography.families.icons` resolves reliably
+    // (avoids fontconfig matching quirks for variable TTF faces).
+    FontLoader {
+        id: shellIconFont
+        source: "/usr/share/fonts/TTF/MaterialSymbolsRounded[FILL,GRAD,opsz,wght].ttf"
+    }
+
+    // ─── IPC handler ─────────────────────────────────────────────
+    // Routes Hyprland keybind calls to ExpansionManager and SettingsState.
+    // See IpcHandler.qml for the full hyprland.conf snippet.
+    IpcHandler {
+        id: ipcHandler
+    }
+
+    // ─── Services ────────────────────────────────────────────────
+    // Only services without a native Quickshell equivalent remain.
+    // Audio/Battery/Media/Clock/Bluetooth/Network/Launcher/Notification
+    // are now native bindings inside the state/ singletons.
+    // Services write to State singletons; UI reads State.
+    // Panels never import Services — they only read State.
+
+    BrightnessService {}
+    WallpaperService {
+        id: wallpaperServiceInstance
+        wallpaperDir: SettingsStore.wallpaperDirectory
+    }
+    ThemeService {
+        id: themeServiceInstance
+    }
+    PowerService {}
+    ConfigService {
+        id: configServiceInstance
+        configPath: StandardPaths.writableLocation(StandardPaths.ConfigLocation) + "/quickshell/settings.json"
+    }
+
+    // ── Eager state instantiation ─────────────────────────────────
+    // NotificationState is a lazily-created singleton; referencing it
+    // here forces the native NotificationServer to own
+    // org.freedesktop.Notifications from startup — not only after the
+    // notification-center panel is first opened.
+    readonly property var notificationStateRef: NotificationState
+    // Keep night-light state alive from startup so the saved temperature is
+    // reapplied even before the control center is opened.
+    readonly property var nightLightStateRef: NightLightState
+
+    // ═══════════════════════════════════════════════════════════════
+    //  LIVE SETTINGS→RUNTIME BRIDGE
+    //
+    //  ConfigService._applyToRuntime() runs once at load.
+    //  This Connections block propagates live SettingsStore changes
+    //  to runtime State singletons so settings page edits take
+    //  effect immediately without a shell reload.
+    // ═══════════════════════════════════════════════════════════════
 
     Connections {
-        target: Hyprland
-        function onRawEvent(event) {
-            if (root.refreshEvents[event.name])
-                root.refresh();
+        target: SettingsStore
+
+        // ── Theme ────────────────────────────────────────────
+        function onThemeChanged() {
+            var key = SettingsStore.theme
+            var themes = Colors.availableThemes
+            for (var i = 0; i < themes.length; i++) {
+                if (themes[i].key === key) {
+                    Theme.setTheme(themes[i].value)
+                    ThemeState.currentTheme = themes[i].value
+                    return
+                }
+            }
+        }
+
+        // ── Wallpaper ────────────────────────────────────────
+        function onWallpaperChanged() {
+            if (SettingsStore.wallpaper !== "")
+                WallpaperState.setWallpaperRequested(SettingsStore.wallpaper)
+        }
+
+        function onWallpaperBackendChanged() {
+            WallpaperState.backend = SettingsStore.wallpaperBackend
+        }
+
+        function onWallpaperDirectoryChanged() {
+            wallpaperServiceInstance.setWallpaperDir(SettingsStore.wallpaperDirectory)
+        }
+
+        // ── Blur / Opacity ───────────────────────────────────
+        // ShellMetrics reads SettingsStore directly — no bridge needed.
+        // onBlurEnabledChanged, onBlurStrengthChanged, onShellOpacityChanged
+        // all propagate through ShellMetrics → Shell bindings.
+
+        // ── Animations ───────────────────────────────────────
+        // ExpandedSurface reads SettingsStore.animationsEnabled,
+        // .expandDuration, .collapseDuration directly — no bridge needed.
+
+        // ── Clock ────────────────────────────────────────────
+        function onClockUse24hChanged() {
+            ClockState.use24h = SettingsStore.clockUse24h
+        }
+
+        function onClockShowSecondsChanged() {
+            ClockState.showSeconds = SettingsStore.clockShowSeconds
+        }
+
+        function onClockTimezoneChanged() {
+            ClockState.timezone = SettingsStore.clockTimezone
+        }
+
+        function onClockDateFormatChanged() {
+            ClockState.dateFormat = SettingsStore.clockDateFormat
+        }
+
+        // ── Keybinds ─────────────────────────────────────────
+        function onKeybindLauncherChanged() {
+            ipcHandler.updateKeybind("launcher", SettingsStore.keybindLauncher)
+        }
+
+        function onKeybindThemeSwitcherChanged() {
+            ipcHandler.updateKeybind("theme-switcher", SettingsStore.keybindThemeSwitcher)
+        }
+
+        function onKeybindWallpaperSelectorChanged() {
+            ipcHandler.updateKeybind("wallpaper-selector", SettingsStore.keybindWallpaperSelector)
+        }
+
+        function onKeybindNotificationCenterChanged() {
+            ipcHandler.updateKeybind("notification-center", SettingsStore.keybindNotificationCenter)
+        }
+
+        function onKeybindMediaChanged() {
+            ipcHandler.updateKeybind("media-player", SettingsStore.keybindMedia)
+        }
+
+        function onKeybindSettingsChanged() {
+            ipcHandler.updateKeybind("settings", SettingsStore.keybindSettings)
         }
     }
 
-    function toggleSurface(mon, surface) {
-        if (root.openMon === mon && root.openSurface === surface) {
-            root.close();
-            return;
-        }
-        root.openMon = mon;
-        root.openSurface = surface;
-    }
+    // ─── Hyprland focus grab ─────────────────────────────────────
+    // Dismisses the active panel when the user clicks outside the
+    // PanelSurface (the interactive window while expanded).
+    // Only active when the panel is in the Expanded lifecycle state.
 
-    function close() {
-        root.openMon = "";
-        root.openSurface = "";
-    }
+    HyprlandFocusGrab {
+        id: shellFocusGrab
 
-    function peek(mon) {
-        root.peekMon = root.peekMon === mon ? "" : mon;
-    }
+        windows: [panelSurface]
+        active: ExpansionManager.isExpanded
 
-    IpcHandler {
-        target: "pill"
-        function mixer(mon: string): void { root.toggleSurface(mon, "mixer"); }
-        function calendar(mon: string): void { root.toggleSurface(mon, "calendar"); }
-        function power(mon: string): void { root.toggleSurface(mon, "power"); }
-        function link(mon: string): void { root.toggleSurface(mon, "link"); }
-        function battery(mon: string): void { root.toggleSurface(mon, "battery"); }
-        function media(mon: string): void {
-            if (Mpris.players.values.length > 0)
-                root.toggleSurface(mon, "media");
-        }
-        function hide(): void { root.close(); }
-    }
-
-    Variants {
-        model: Quickshell.screens
-
-        PanelWindow {
-            id: reserve
-            required property var modelData
-            readonly property real s: modelData ? modelData.height / 1080 : 1
-            readonly property real topGap: 8 * s
-            readonly property real restHeight: 38 * s
-
-            screen: modelData
-            color: "transparent"
-            exclusionMode: ExclusionMode.Normal
-            exclusiveZone: restHeight + topGap
-            aboveWindows: true
-
-            anchors { top: true; left: true; right: true }
-            implicitHeight: restHeight + topGap
-
-            mask: emptyReserve
-            Region { id: emptyReserve }
+        onActiveChanged: {
+            if (!active) {
+                // Delay collapse slightly to avoid race with pill click.
+                // When the user clicks a pill to switch panels, the focus
+                // grab may go inactive before the pill's onClicked fires.
+                // The timer allows the expand request to win over collapse.
+                focusGrabCollapseTimer.start()
+            }
         }
     }
 
-    Variants {
-        model: Quickshell.screens
-
-        PanelWindow {
-            id: overlay
-            required property var modelData
-            readonly property real s: modelData ? modelData.height / 1080 : 1
-            readonly property real topGap: 8 * s
-            readonly property string surface: root.openMon === modelData.name ? root.openSurface : ""
-            readonly property bool surfaceOpen: surface.length > 0
-            readonly property bool modal: surfaceOpen || pill.held
-
-            /**
-             * True while this monitor's active workspace holds a real
-             * fullscreen window. The pill then retracts off the top edge and
-             * the whole layer becomes click-through so fullscreen content owns
-             * the screen. Maximize is suppressed globally, so only true
-             * fullscreen ever flips this.
-             */
-            readonly property bool monFullscreen: {
-                var mons = Hyprland.monitors.values;
-                for (var i = 0; i < mons.length; i++) {
-                    if (mons[i].name === modelData.name) {
-                        var ws = mons[i].activeWorkspace;
-                        var o = ws ? ws.lastIpcObject : null;
-                        return o ? !!o.hasfullscreen : false;
-                    }
-                }
-                return false;
+    // ── Delayed collapse timer for focus grab ────────────────────
+    // Only collapses if the lifecycle is still Expanded after the
+    // delay — meaning no pill click (requestExpand) intervened.
+    Timer {
+        id: focusGrabCollapseTimer
+        interval: 50
+        onTriggered: {
+            if (ExpansionManager.lifecycle === ExpansionManager.Lifecycle.Expanded) {
+                ExpansionManager.requestCollapse()
             }
-
-            onMonFullscreenChanged: if (monFullscreen) {
-                if (root.openMon === modelData.name) root.close();
-                if (root.peekMon === modelData.name) root.peekMon = "";
-                pill.pinned = false;
-            }
-
-            screen: modelData
-            color: "transparent"
-            exclusionMode: ExclusionMode.Ignore
-            WlrLayershell.layer: WlrLayer.Overlay
-            WlrLayershell.keyboardFocus: surfaceOpen ? WlrKeyboardFocus.Exclusive : WlrKeyboardFocus.OnDemand
-            WlrLayershell.namespace: "pill"
-
-            anchors { top: true; left: true; right: true; bottom: true }
-
-            mask: monFullscreen ? hiddenRegion : (modal ? fullRegion : pillRegion)
-            Region { id: hiddenRegion }
-            Region {
-                id: pillRegion
-                readonly property real baseW: Math.max(pill.width, pill.targetW)
-                x: pill.x + (pill.width - baseW) / 2
-                y: pill.y
-                width: baseW + pill.inputPadRight
-                height: Math.max(pill.height, pill.targetH)
-            }
-            Region {
-                id: fullRegion
-                width: overlay.width
-                height: overlay.height
-            }
-
-            MouseArea {
-                anchors.fill: parent
-                enabled: overlay.modal
-                acceptedButtons: Qt.AllButtons
-                onPressed: {
-                    if (overlay.surfaceOpen) root.close();
-                    else {
-                        pill.pinned = false;
-                        root.peekMon = "";
-                    }
-                }
-            }
-
-            FocusScope {
-                id: focusScope
-                anchors.fill: parent
-                focus: overlay.surfaceOpen
-
-                HoverHandler {
-                    onHoveredChanged: pill.hovered = hovered
-                }
-                Keys.onEscapePressed: if (!pill.linkBack()) root.close()
-                Keys.onUpPressed: (e) => { e.accepted = pill.mixerStep(1); }
-                Keys.onDownPressed: (e) => { e.accepted = pill.mixerStep(-1); }
-                Keys.onLeftPressed: (e) => {
-                    if (pill.mixerOpen) { pill.mixerFocusMove(-1); e.accepted = true; }
-                }
-                Keys.onRightPressed: (e) => {
-                    if (pill.mixerOpen) { pill.mixerFocusMove(1); e.accepted = true; }
-                }
-
-                Pill {
-                    id: pill
-                    anchors.top: parent.top
-                    anchors.topMargin: overlay.topGap
-                    anchors.horizontalCenter: parent.horizontalCenter
-                    s: overlay.s
-                    screenName: overlay.modelData.name
-                    barWindow: overlay
-                    surface: overlay.surface
-                    forcePinned: root.peekMon === overlay.modelData.name
-
-                    opacity: overlay.monFullscreen ? 0 : 1
-                    Behavior on opacity {
-                        NumberAnimation {
-                            duration: Motion.morph
-                            easing.type: Motion.easeMorph
-                            easing.bezierCurve: Motion.morphCurve
-                        }
-                    }
-                    transform: Translate {
-                        y: overlay.monFullscreen ? -(pill.height + overlay.topGap) : 0
-                        Behavior on y {
-                            NumberAnimation {
-                                duration: Motion.morph
-                                easing.type: Motion.easeMorph
-                                easing.bezierCurve: Motion.morphCurve
-                            }
-                        }
-                    }
-
-                    onRequestSurface: (name) => root.toggleSurface(overlay.modelData.name, name)
-                    onRequestClose: root.close()
-                }
-            }
-
-            onSurfaceOpenChanged: if (surfaceOpen) focusScope.forceActiveFocus()
         }
+    }
+
+    // ─── Panel registration ──────────────────────────────────────
+    // All expandable panels register with ExpansionRegistry.
+    // Adding a new panel only requires adding a register() call here.
+    // ExpansionManager is never modified.
+
+    Component.onCompleted: {
+        ExpansionRegistry.register(
+            "launcher",
+            Qt.resolvedUrl("panels/Launcher.qml"),
+            ShellMetrics.launcherWidth,
+            520
+        )
+
+        ExpansionRegistry.register(
+            "control-center",
+            Qt.resolvedUrl("panels/ControlCenter.qml"),
+            ShellMetrics.controlCenterWidth,
+            520
+        )
+
+        ExpansionRegistry.register(
+            "theme-switcher",
+            Qt.resolvedUrl("panels/ThemeSwitcher.qml"),
+            ShellMetrics.themeSwitcherWidth,
+            260
+        )
+
+        ExpansionRegistry.register(
+            "wallpaper-selector",
+            Qt.resolvedUrl("panels/WallpaperSelector.qml"),
+            ShellMetrics.wallpaperSelectorWidth,
+            520
+        )
+
+        ExpansionRegistry.register(
+            "notification-center",
+            Qt.resolvedUrl("panels/NotificationCenter.qml"),
+            ShellMetrics.notificationCenterWidth,
+            520
+        )
+
+        ExpansionRegistry.register(
+            "media-player",
+            Qt.resolvedUrl("panels/MediaPlayer.qml"),
+            ShellMetrics.mediaPlayerWidth,
+            300
+        )
+
+        ExpansionRegistry.register(
+            "calendar",
+            Qt.resolvedUrl("panels/Calendar.qml"),
+            ShellMetrics.calendarWidth,
+            400
+        )
+
+        ExpansionRegistry.register(
+            "bluetooth",
+            Qt.resolvedUrl("panels/Bluetooth.qml"),
+            ShellMetrics.bluetoothWidth,
+            420
+        )
+
+        ExpansionRegistry.register(
+            "wifi",
+            Qt.resolvedUrl("panels/WiFi.qml"),
+            ShellMetrics.wifiWidth,
+            420
+        )
+
+        ExpansionRegistry.register(
+            "audio",
+            Qt.resolvedUrl("panels/Audio.qml"),
+            ShellMetrics.audioWidth,
+            300
+        )
+
+        ExpansionRegistry.register(
+            "power-menu",
+            Qt.resolvedUrl("panels/PowerMenu.qml"),
+            ShellMetrics.powerMenuWidth,
+            260
+        )
+
+        console.info("Shell: registered %1 panels".arg(ExpansionRegistry.count))
     }
 }

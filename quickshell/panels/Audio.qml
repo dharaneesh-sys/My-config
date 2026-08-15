@@ -19,7 +19,7 @@ Item {
     AudioViewModel { id: vm }
 
     width: parent ? parent.width : ShellMetrics.audioWidth
-    height: contentColumn.height
+    implicitHeight: contentColumn.height
 
     Column {
         id: contentColumn

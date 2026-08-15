@@ -34,16 +34,16 @@ QtObject {
     property ListModel quickTilesModel: ListModel {
         ListElement { iconName: "wifi";              title: "Wi-Fi";      subtitle: ""; active: false }
         ListElement { iconName: "bluetooth";         title: "Bluetooth";  subtitle: ""; active: false }
-        ListElement { iconName: "do_not_disturb_on"; title: "DND";        subtitle: ""; active: false }
         ListElement { iconName: "contrast";          title: "Theme";      subtitle: ""; active: false }
+        ListElement { iconName: "brightness_4";      title: "Night Light";subtitle: ""; active: false }
     }
 
     // Index → action closure. Must mirror quickTilesModel row order.
     property var tileActions: [
-        function() { NetworkState.setWifiEnabledRequested(!NetworkState.wifiEnabled) },
-        function() { BluetoothState.setEnabledRequested(!BluetoothState.enabled) },
-        function() { NotificationState.setDndRequested(!NotificationState.dnd) },
-        function() { ThemeState.nextRequested() }
+        function() { ExpansionManager.requestExpand("wifi") },
+        function() { ExpansionManager.requestExpand("bluetooth") },
+        function() { ThemeState.nextRequested() },
+        function() { vm.toggleNightLight() }
     ]
 
     // Update ListModel in-place when state changes (no delegate churn)
@@ -53,41 +53,49 @@ QtObject {
         quickTilesModel.setProperty(0, "active",   NetworkState.wifiEnabled)
         quickTilesModel.setProperty(1, "subtitle", BluetoothState.enabled ? "On" : "Off")
         quickTilesModel.setProperty(1, "active",   BluetoothState.enabled)
-        quickTilesModel.setProperty(2, "subtitle", NotificationState.dnd ? "On" : "Off")
-        quickTilesModel.setProperty(2, "active",   NotificationState.dnd)
-        quickTilesModel.setProperty(3, "subtitle", ThemeState.currentLabel)
+        quickTilesModel.setProperty(2, "subtitle", ThemeState.currentLabel)
+        quickTilesModel.setProperty(3, "subtitle", vm.nightLightOn ? "On" : "Off")
+        quickTilesModel.setProperty(3, "active",   vm.nightLightOn)
     }
 
     Component.onCompleted: _syncModel()
 
-    // Sync model on state changes (in-place updates, no delegate churn)
-    Connections {
+    // Sync model on state changes (in-place updates, no delegate churn).
+    // QtObject cannot hold bare child objects in Qt6 — each Connections
+    // must be assigned to a named property or the type fails to load.
+    property Connections _networkConn: Connections {
         target: NetworkState
         function onWifiEnabledChanged() { vm._syncModel() }
         function onConnectedChanged()   { vm._syncModel() }
         function onSsidChanged()        { vm._syncModel() }
     }
-    Connections {
+    property Connections _bluetoothConn: Connections {
         target: BluetoothState
         function onEnabledChanged() { vm._syncModel() }
     }
-    Connections {
-        target: NotificationState
-        function onDndChanged() { vm._syncModel() }
-    }
-    Connections {
+    property Connections _themeConn: Connections {
         target: ThemeState
         function onCurrentLabelChanged() { vm._syncModel() }
     }
+    property Connections _nightLightConn: Connections {
+        target: NightLightState
+        function onEnabledChanged() { vm._syncModel() }
+    }
 
     // ── Volume ─────────────────────────────────────────────────────
-    readonly property string volumeIcon: AudioState.muted ? "volume_off" : "volume_up"
+    // Level-accurate Material glyph: off (muted), down (quiet), up.
+    readonly property string volumeIcon: AudioState.muted ? "volume_off"
+                                       : AudioState.volume < 0.35 ? "volume_down"
+                                       : "volume_up"
     readonly property real volumeValue: AudioState.volume
     readonly property bool volumeMuted: AudioState.muted
     readonly property string volumeText: Math.round(AudioState.volume * 100) + "%"
 
     // ── Brightness ──────────────────────────────────────────────────
-    readonly property string brightnessIcon: "brightness_6"
+    // Level-accurate Material glyph: low / medium / high.
+    readonly property string brightnessIcon: BrightnessState.brightness < 0.3 ? "brightness_low"
+                                             : BrightnessState.brightness < 0.7 ? "brightness_medium"
+                                             : "brightness_high"
     readonly property real brightnessValue: BrightnessState.brightness
     readonly property string brightnessText: Math.round(BrightnessState.brightness * 100) + "%"
 
@@ -105,11 +113,33 @@ QtObject {
                                         : "No notifications"
 
     // ── Battery ────────────────────────────────────────────────────
-    readonly property bool hasBattery: BatteryState.percentage > 0
-    readonly property string batteryIcon: BatteryState.charging
-                                        ? "battery_charging_full"
-                                        : "battery_full"
+    // Show the widget whenever a device exists — even at exactly 0%
+    // charge (percentage > 0 would hide it at empty).
+    readonly property bool hasBattery: BatteryState.device !== null
+    readonly property string batteryIcon: _batteryIconFor(BatteryState.percentage, BatteryState.charging)
+    readonly property real batteryPercentage: BatteryState.percentage
+    readonly property bool batteryCharging: BatteryState.charging
     readonly property string batteryText: Math.round(BatteryState.percentage) + "%"
+
+    // Level-accurate Material battery glyph (battery_5_bar etc.) so the
+    // icon reflects the real charge, not a generic "full".
+    function _batteryIconFor(p, charging) {
+        if (charging) {
+            if (p >= 95) return "battery_charging_full"
+            if (p >= 70) return "battery_charging_80"
+            if (p >= 50) return "battery_charging_60"
+            if (p >= 30) return "battery_charging_50"
+            return "battery_charging_30"
+        }
+        if (p >= 95) return "battery_full"
+        if (p >= 80) return "battery_6_bar"
+        if (p >= 60) return "battery_5_bar"
+        if (p >= 40) return "battery_4_bar"
+        if (p >= 20) return "battery_3_bar"
+        if (p >= 10) return "battery_2_bar"
+        if (p > 0)   return "battery_1_bar"
+        return "battery_0_bar"
+    }
 
     // ── Actions ────────────────────────────────────────────────────
     function setVolume(val)        { AudioState.setVolumeRequested(val) }
@@ -118,4 +148,11 @@ QtObject {
     function next()                { MediaState.nextRequested() }
     function previous()            { MediaState.previousRequested() }
     function openNotificationCenter() { ExpansionManager.requestExpand("notification-center") }
+    
+    // ── Night Light ────────────────────────────────────────────────
+    // State belongs to the shell, not this loader-created view model.
+    readonly property bool nightLightOn: NightLightState.enabled
+    function toggleNightLight() {
+        NightLightState.toggle()
+    }
 }

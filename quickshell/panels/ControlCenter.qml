@@ -2,6 +2,8 @@ import QtQuick
 
 import qs.tokens
 import qs.metrics
+import qs.settings
+import qs.components.atoms
 import qs.components.molecules
 import qs.viewmodels
 
@@ -14,6 +16,12 @@ Item {
     //  Composed from molecules, driven by ControlCenterViewModel.
     //  Only binds properties and emits user actions.
     //  Never formats, filters, sorts, or accesses Services/State.
+    //
+    //  Layout (compact):
+    //    Header → Quick toggles → Volume → Brightness
+    //    → Media card → Power actions.
+    //  No section labels. Section visibility honors SettingsStore
+    //  ccShow* toggles.
     // ═══════════════════════════════════════════════════════════════
 
     // ── ViewModel ──────────────────────────────────────────────────
@@ -23,7 +31,7 @@ Item {
 
     // ── Layout ─────────────────────────────────────────────────────
     width: parent ? parent.width : ShellMetrics.controlCenterWidth
-    height: contentColumn.height
+    implicitHeight: contentColumn.height
 
     // ── Content ────────────────────────────────────────────────────
     Column {
@@ -42,6 +50,7 @@ Item {
         QuickSettingsGridModel {
             width: parent.width
             model: vm.quickTilesModel
+            visible: SettingsStore.ccShowQuickToggles
 
             onTileClicked: function(index) {
                 if (index >= 0 && index < vm.tileActions.length)
@@ -58,6 +67,7 @@ Item {
             to: 1.0
             value: vm.volumeValue
             valueText: vm.volumeText
+            visible: SettingsStore.ccShowVolume
 
             onMoved: function(newValue) {
                 vm.setVolume(newValue)
@@ -73,16 +83,27 @@ Item {
             to: 1.0
             value: vm.brightnessValue
             valueText: vm.brightnessText
+            visible: SettingsStore.ccShowBrightness
 
             onMoved: function(newValue) {
                 vm.setBrightness(newValue)
             }
         }
 
+        // ── Battery ──────────────────────────────────────────────
+        DynamicBatteryWidget {
+            width: parent.width
+            hasBattery: vm.hasBattery
+            iconName: vm.batteryIcon
+            percentage: vm.batteryPercentage
+            charging: vm.batteryCharging
+            visible: vm.hasBattery && SettingsStore.ccShowBattery
+        }
+
         // ── Media mini card ──────────────────────────────────────
         MediaMiniCard {
             width: parent.width
-            visible: vm.hasMedia
+            visible: vm.hasMedia && SettingsStore.ccShowMedia
             artworkSource: vm.mediaArtwork
             title: vm.mediaTitle
             artist: vm.mediaArtist
@@ -93,23 +114,9 @@ Item {
             onPrevious: vm.previous()
         }
 
-        // ── Notification summary ─────────────────────────────────
-        SettingRow {
+        // ── Power Actions ────────────────────────────────────────
+        PowerActionsRow {
             width: parent.width
-            iconName: "notifications"
-            title: "Notifications"
-            subtitle: vm.unreadText
-
-            onClicked: vm.openNotificationCenter()
-        }
-
-        // ── Battery ──────────────────────────────────────────────
-        SettingRow {
-            width: parent.width
-            visible: vm.hasBattery
-            iconName: vm.batteryIcon
-            title: "Battery"
-            subtitle: vm.batteryText
         }
 
         // ── Bottom padding ───────────────────────────────────────

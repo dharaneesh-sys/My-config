@@ -11,26 +11,25 @@ PanelWindow {
     id: shell
 
     // ═══════════════════════════════════════════════════════════════
-    //  Shell — the primary PanelWindow
+    //  Shell — the permanent pill bar
     //
     //  Full-width transparent surface anchored to the top edge.
-    //  Content (PillPanel: pill + in-place expansion) is centered.
+    //  Content (PillPanel: pill visuals only) is centered.
     //  Transparent areas pass through clicks to windows below.
     //
-    //  Wave 1 changes:
-    //   • Single PillPanel replaces the TopPill + ExpandedSurface
-    //     + OverlayDim trio. The panel expands IN-PLACE by morphing
-    //     the pill's own surface (user requirement).
-    //   • implicitHeight is bound to PillPanel's DISCRETE target
-    //     height (no Behavior), so the window resizes exactly twice
-    //     per expand/collapse cycle — no per-frame surface resize
-    //     (root cause #1).
-    //   • The mask tracks PillPanel.surface (the animated geometry),
-    //     so the opaque region follows the morph while the window
-    //     geometry stays discrete.
-    //   • No OverlayDim sibling at z:30 — the input-catch MouseArea
-    //     lives inside PillPanel BEHIND the content, so panel clicks
-    //     are no longer swallowed (root cause #6).
+    //  Wave 2 (two-window split):
+    //   • This window is the PILL BAR ONLY — always the same height,
+    //     never expanded. Expanded panels live in the separate
+    //     PanelSurface window (windows/PanelSurface.qml).
+    //   • exclusionMode: Normal reserves a constant strut, so tiling
+    //     windows are pushed below the pill and NEVER overlap it — no
+    //     more pill floating over tiled windows (issue A).
+    //   • implicitHeight is CONSTANT (pill only) — expanding a panel
+    //     does not resize this window at all, so the strut is stable
+    //     and tiling windows are never pushed by the panel height
+    //     (issue B).
+    //   • The mask tracks PillPanel.surface so only the pill pixels
+    //     are opaque/clickable; the rest of the strip passes through.
     // ═══════════════════════════════════════════════════════════════
 
     // ── Screen anchoring ───────────────────────────────────────────
@@ -40,30 +39,32 @@ PanelWindow {
         right: true
     }
 
-    // ── Exclusion: do NOT reserve screen space ────────────────────
-    // The pill floats over content. No strut required.
-    exclusionMode: ExclusionMode.Ignore
+    // ── Exclusion: RESERVE screen space ────────────────────────────
+    // The pill bar owns a permanent strut. Tiling windows are laid out
+    // below it, so they can never overlap the pill.
+    exclusionMode: ExclusionMode.Normal
+    // Do not rely on layer-shell's automatic zone calculation: it can
+    // resolve to zero for a masked, transparent PanelWindow. Reserve the
+    // full pill band explicitly so tiled windows start below the pill.
+    exclusiveZone: ShellMetrics.pillReservedHeight
 
-    // ── Layer: above tiled windows ────────────────────────────────
-    aboveWindows: true
+    // ── Focus: the pill is not interactive (no text input) ────────
+    // Focus lives on PanelSurface while a panel is expanded.
+    focusable: false
 
-    // ── Focus: only when a panel is interactive ───────────────────
-    focusable: ExpansionManager.isInteractive
-
-    // ── Background: transparent (only content region is opaque) ───
+    // ── Background: transparent (only the pill region is opaque) ───
     color: "transparent"
 
-    // ── Window size: DISCRETE target, not animated content ────────
-    // PillPanel.width/height have no Behavior — they jump to their
-    // collapsed/expanded targets. Binding here means the layer
-    // surface resizes exactly twice per expand/collapse cycle
-    // (fixes the per-frame resize cascade).
+    // ── Window size: CONSTANT, pill-only ───────────────────────────
+    // Never depends on expansion state. The strut therefore never
+    // changes height, even while a panel is open.
     implicitWidth: pillPanel.width
-    implicitHeight: (pillPanel.visible ? ShellMetrics.pillTopMargin : 0)
-                    + pillPanel.height
-                    + ShellMetrics.pillBottomMargin
+    // Leave a stable, small canvas for the pill notification morph. The
+    // exclusive zone remains the pill band, so this never moves windows.
+    implicitHeight: Math.max(ShellMetrics.pillReservedHeight,
+                             ShellMetrics.pillTopMargin + 80)
 
-    // ── Content: the single morphing pill/panel ───────────────────
+    // ── Content: the pill ──────────────────────────────────────────
     PillPanel {
         id: pillPanel
         anchors {
@@ -74,8 +75,9 @@ PanelWindow {
     }
 
     // ── Mask: tell Hyprland which pixels are opaque ──────────────
-    // Quickshell's Region supports `item` (singular). We track the
-    // ANIMATED surface so the opaque region morphs with the panel,
-    // while the window geometry itself stays discrete.
-    mask: Region { item: pillPanel.surface }
+    // The exclusive zone remains constant while expanded, but invisible pill
+    // pixels must not intercept clicks behind the floating panel.
+    mask: Region {
+        item: ExpansionManager.isExpanded ? null : pillPanel.maskItem
+    }
 }

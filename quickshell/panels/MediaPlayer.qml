@@ -5,6 +5,7 @@ import qs.metrics
 import qs.components.molecules
 import qs.viewmodels
 import qs.components.atoms
+import qs.state
 
 Item {
     id: mediaPlayer
@@ -19,104 +20,194 @@ Item {
     MediaPlayerViewModel { id: vm }
 
     width: parent ? parent.width : ShellMetrics.mediaPlayerWidth
-    height: contentColumn.height
+    // Reference-style compact now-playing strip.
+    implicitHeight: 64
 
-    Column {
-        id: contentColumn
-        width: parent.width
-        spacing: Spacing.panel.gap
+    // ── Keyboard navigation ──────────────────────────────────────────────────
+    property int currentIndex: -1
+    // Compact seven-day strip centred on the real local date. Reading
+    // ClockState.date keeps the binding current across midnight.
+    readonly property var calendarDays: _calendarDays()
 
-        PanelHeader {
-            width: parent.width
-            title: vm.headerTitle
-            iconName: "music_note"
-            subtitle: vm.headerSubtitle
+    function _calendarDays() {
+        var dateDependency = ClockState.date
+        var today = new Date()
+        var values = []
+        for (var offset = -3; offset <= 3; offset++) {
+            var day = new Date(today.getFullYear(), today.getMonth(), today.getDate() + offset)
+            values.push({
+                label: String(day.getDate()),
+                weekday: ["S", "M", "T", "W", "T", "F", "S"][day.getDay()],
+                isToday: offset === 0
+            })
         }
+        return values
+    }
 
-        // Now playing
-        MediaMiniCard {
-            width: parent.width
-            visible: vm.hasMedia
-            artworkSource: vm.artwork
-            title: vm.title
-            artist: vm.artist
-            playing: vm.playing
+    focus: true
 
-            onPlayPause: vm.playPause()
-            onNext: vm.next()
-            onPrevious: vm.previous()
+    Keys.onEscapePressed: ExpansionManager.requestCollapse()
+
+    Connections {
+        target: vm.playersModel
+        function onCountChanged() { mediaPlayer.currentIndex = -1 }
+    }
+
+    Keys.onDownPressed: {
+        if (vm.playersModel.count > 0)
+            mediaPlayer.currentIndex = Math.min(mediaPlayer.currentIndex + 1,
+                vm.playersModel.count - 1)
+        event.accepted = true
+    }
+    Keys.onUpPressed: {
+        mediaPlayer.currentIndex = Math.max(mediaPlayer.currentIndex - 1, -1)
+        event.accepted = true
+    }
+    Keys.onReturnPressed: {
+        var idx = mediaPlayer.currentIndex >= 0
+            ? mediaPlayer.currentIndex : 0
+        if (vm.playersModel.count > 0) {
+            var item = vm.playersModel.get(idx)
+            vm.selectPlayer(item.name)
         }
+    }
 
-        // Progress bar — SmoothSliderRow absorbs the 2s position-poll
-        // steps (catch-up animation + integer-pixel rounding).
-        SmoothSliderRow {
-            width: parent.width
-            visible: vm.hasProgress
-            iconName: "schedule"
-            title: ""
-            from: 0.0
-            to: vm.length
-            value: vm.position
-            valueText: vm.progressText
+    Row {
+        anchors.fill: parent
+        spacing: Spacing.sm
 
-            onMoved: vm.seek(newValue)
-        }
+        Rectangle {
+            id: artworkFrame
+            width: 48
+            height: 48
+            radius: Radius.listItem.background
+            color: Colors.surface
+            clip: true
 
-        // Shuffle & repeat
-        Row {
-            width: parent.width
-            spacing: Spacing.md
-
-            ShellButton {
-                iconName: "shuffle"
-                text: "Shuffle"
-                active: vm.shuffleOn
-                onClicked: vm.toggleShuffle()
+            Image {
+                anchors.fill: parent
+                source: vm.artwork
+                fillMode: Image.PreserveAspectCrop
+                asynchronous: true
+                visible: vm.hasMedia && status === Image.Ready
             }
 
-            ShellButton {
-                iconName: "repeat"
-                text: "Repeat"
-                active: vm.repeatActive
-                onClicked: vm.toggleRepeat()
+            ShellIcon {
+                anchors.centerIn: parent
+                visible: !vm.hasMedia
+                name: "music_note"
+                iconSize: Spacing.icon.medium
+                iconColor: Colors.fgMuted
             }
         }
 
-        // Player selection
         Column {
-            width: parent.width
-            spacing: Spacing.xs
-            visible: vm.hasMultiplePlayers
+            width: 116
+            anchors.verticalCenter: parent.verticalCenter
+            spacing: 1
 
-            SectionHeader {
+            ShellText {
                 width: parent.width
-                text: "Players"
+                text: vm.hasMedia ? vm.title : "No media playing"
+                role: ShellText.Role.CaptionMedium
+                textColor: Colors.fg
+                elide: Text.ElideRight
             }
 
-            Repeater {
-                model: vm.playersModel
+            ShellText {
+                width: parent.width
+                text: vm.hasMedia ? vm.artist : ""
+                visible: text !== ""
+                role: ShellText.Role.Overline
+                textColor: Colors.fgMuted
+                elide: Text.ElideRight
+            }
 
-                SettingRow {
+            Row {
+                spacing: 2
+                height: 18
+                visible: vm.hasMedia
+
+                TransportButton { iconName: "skip_previous"; onClicked: vm.previous() }
+                TransportButton { iconName: vm.playing ? "pause" : "play_arrow"; active: vm.playing; onClicked: vm.playPause() }
+                TransportButton { iconName: "skip_next"; onClicked: vm.next() }
+            }
+        }
+
+        Item { width: 1; height: 1 }
+
+        Column {
+            width: 104
+            anchors.verticalCenter: parent.verticalCenter
+            spacing: 2
+
+            ShellText {
+                width: parent.width
+                text: ClockState.time
+                role: ShellText.Role.CaptionMedium
+                textColor: Colors.fg
+                horizontalAlignment: Text.AlignHCenter
+            }
+
+            Column {
+                width: parent.width
+                spacing: 0
+
+                Row {
                     width: parent.width
-                    iconName: "music_note"
-                    title: model.name
-                    subtitle: model.subtitle
+                    spacing: 2
+                    Repeater {
+                        model: mediaPlayer.calendarDays
+                        delegate: ShellText {
+                            required property var modelData
+                            width: (parent.width - 12) / 7
+                            text: modelData.weekday
+                            role: ShellText.Role.Overline
+                            textColor: Colors.fgDisabled
+                            horizontalAlignment: Text.AlignHCenter
+                        }
+                    }
+                }
 
-                    onClicked: vm.selectPlayer(model.name)
+                Row {
+                    width: parent.width
+                    spacing: 2
+                    Repeater {
+                        model: mediaPlayer.calendarDays
+                        delegate: ShellText {
+                            required property var modelData
+                            width: (parent.width - 12) / 7
+                            text: modelData.label
+                            role: ShellText.Role.Overline
+                            textColor: modelData.isToday ? Colors.accent : Colors.fgDisabled
+                            horizontalAlignment: Text.AlignHCenter
+                        }
+                    }
                 }
             }
         }
+    }
 
-        // No media
-        ShellText {
-            visible: !vm.hasMedia
-            text: "No media playing"
-            role: ShellText.Role.Body
-            textColor: Colors.fgMuted
-            width: parent.width
-            horizontalAlignment: Text.AlignHCenter
+    component TransportButton : Item {
+        property string iconName: ""
+        property bool active: false
+        signal clicked()
+
+        width: 16
+        height: 16
+
+        ShellIcon {
+            anchors.centerIn: parent
+            name: parent.iconName
+            iconSize: 14
+            iconColor: parent.active ? Colors.accent : Colors.fgMuted
         }
 
-        Item { width: parent.width; height: Spacing.xs }
+        MouseArea {
+            anchors.fill: parent
+            hoverEnabled: true
+            cursorShape: Qt.PointingHandCursor
+            onClicked: parent.clicked()
+        }
     }
 }

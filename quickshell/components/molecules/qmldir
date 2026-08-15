@@ -15,3 +15,5 @@ NotificationCard  0.1 NotificationCard.qml
 AppRow            0.1 AppRow.qml
 QuickSettingsGrid 0.1 QuickSettingsGrid.qml
 QuickSettingsGridModel 0.1 QuickSettingsGridModel.qml
+DynamicBatteryWidget 0.1 DynamicBatteryWidget.qml
+PowerActionsRow      0.1 PowerActionsRow.qml

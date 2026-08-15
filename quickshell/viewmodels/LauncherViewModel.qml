@@ -20,8 +20,8 @@ QtObject {
     property string query: LauncherState.query
 
     // ── Results (ListModel, reconciled in place, limited) ──────────
-    // LauncherService wholesale-reassigns LauncherState.filteredApplications
-    // on every query keystroke and rescan. A fresh JS array per change
+    // LauncherState recomputes filteredApplications in-process on every
+    // query keystroke and applications change. A fresh JS array per change
     // would destroy + recreate every AppRow delegate (losing hover state
     // and causing flicker while typing). Reconcile instead: remove stale
     // rows, setProperty only changed fields, append new. Typing a query
@@ -87,7 +87,7 @@ QtObject {
     }
 
     // ── Sync on state changes ──────────────────────────────────────
-    Connections {
+    property Connections _stateConn: Connections {
         target: LauncherState
         function onFilteredApplicationsChanged() { vm._syncResults() }
     }

@@ -5,6 +5,7 @@ import qs.state
 QtObject {
     id: vm
 
+
     // ═══════════════════════════════════════════════════════════════
     //  MediaPlayerViewModel
     //
@@ -46,8 +47,8 @@ QtObject {
                                        : "off"
 
     // ── Players (ListModel, reconciled in place) ───────────────────
-    // MediaService wholesale-reassigns MediaState.players on every poll.
-    // See WiFiViewModel for the reconcile rationale.
+    // MediaState re-collects players from the native Mpris model on a
+    // 2s reconcile + model changes. See WiFiViewModel for the rationale.
     property ListModel playersModel: ListModel {}
 
     function _formatEntry(p) {
@@ -96,7 +97,7 @@ QtObject {
     readonly property bool hasMultiplePlayers: MediaState.players.length > 1
 
     // ── Sync on state changes ──────────────────────────────────────
-    Connections {
+    property Connections _stateConn: Connections {
         target: MediaState
         function onPlayersChanged() { vm._syncPlayers() }
     }

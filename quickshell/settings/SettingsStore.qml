@@ -26,11 +26,17 @@ QtObject {
     // ═══════════════════════════════════════════════════════════════
 
     // ── Theme ──────────────────────────────────────────────────────
-    property string theme: "tokyo-night"
+    // Pre-sync fallback. Used only in the brief window before
+    // ThemeService mirrors ~/.cache/wallpaper/current_theme at startup,
+    // or if config reload fails. Deliberately NOT "gruvbox" — that
+    // palette's yellow accent (#d79221-class) is the exact fallback
+    // that locked the shell to yellow when the live instance had not
+    // yet re-synced after a theme-tool churn.
+    property string theme: "catppuccin-mocha"
 
     // ── Wallpaper ─────────────────────────────────────────────────
     property string wallpaper: ""
-    property string wallpaperBackend: "swww"         // swww | hyprpaper | swbg
+    property string wallpaperBackend: "awww"         // awww (system uses matuwall/awww)
 
     // ── Blur ──────────────────────────────────────────────────────
     property bool blurEnabled: true
@@ -121,6 +127,7 @@ QtObject {
     // ═══════════════════════════════════════════════════════════════
 
     property int brightnessStepPercent: 5
+    property bool nightLightEnabled: false
 
     // ═══════════════════════════════════════════════════════════════
     //  NETWORK
@@ -140,8 +147,12 @@ QtObject {
     //  MOTION / TRANSITIONS
     // ═══════════════════════════════════════════════════════════════
 
-    property real springDamping: 0.7
-    property real springStiffness: 1.5
+    // Spring feel: stiffness drives how fast the geometry snaps back,
+    // damping how quickly oscillation dies. 0.85 was under-damped → the
+    // pill/panel visibly bounced (jittery). 1.4 settles in ~2 springs
+    // with a hint of life instead of overshoot-forever.
+    property real springDamping: 1.4
+    property real springStiffness: 2.4
     property int expandDuration: 300                  // ms
     property int collapseDuration: 300                // ms
 
@@ -160,7 +171,17 @@ QtObject {
     //  SYSTEM
     // ═══════════════════════════════════════════════════════════════
 
-    property string wallpaperDirectory: ""            // path to wallpaper folder
+    property string wallpaperDirectory: "/home/dinusus/Pictures/Wallpapers" // same dir the GTK wallpaper-app browses
+
+    // ═══════════════════════════════════════════════════════════════
+    //  WINDOW STATE
+    // ═══════════════════════════════════════════════════════════════
+
+    property real settingsX: -1
+    property real settingsY: -1
+    property real settingsW: 800
+    property real settingsH: 600
+    property string settingsPageId: ""
 
     // ═══════════════════════════════════════════════════════════════
     //  DIRTY TRACKING
@@ -193,24 +214,20 @@ QtObject {
             "mediaShowAlbumArt", "mediaShowProgress", "mediaPreferredPlayer",
             "clockUse24h", "clockShowSeconds", "clockTimezone", "clockDateFormat", "clockShowInPill",
             "audioStepPercent", "audioShowInput",
-            "brightnessStepPercent",
+            "brightnessStepPercent", "nightLightEnabled",
             "wifiAutoConnect",
             "powerAutoSuspendMinutes", "powerAutoScreenOffMinutes", "powerShowBatteryInCC",
             "springDamping", "springStiffness", "expandDuration", "collapseDuration",
             "keybindLauncher", "keybindThemeSwitcher", "keybindWallpaperSelector",
             "keybindNotificationCenter", "keybindMedia", "keybindSettings",
-            "wallpaperDirectory"
+            "wallpaperDirectory",
+            "settingsX", "settingsY", "settingsW", "settingsH", "settingsPageId"
         ]
         for (var i = 0; i < props.length; i++) {
             var p = props[i]
             try {
-                // Property change signal name is "<prop>Changed" (a function).
-                // The "on<Prop>Changed" handler property is an object, NOT a
-                // function — using it here silently skipped every property,
-                // so settingsChanged() never fired and nothing ever saved.
                 var sig = p + "Changed"
-                if (typeof store[sig] === "function")
-                    store[sig].connect(function() { store.settingsChanged() })
+                store[sig].connect(store.settingsChanged)
             } catch(e) {}
         }
     }

@@ -5,6 +5,7 @@ import qs.state
 QtObject {
     id: vm
 
+
     // ═══════════════════════════════════════════════════════════════
     //  BluetoothViewModel
     //
@@ -25,8 +26,8 @@ QtObject {
     readonly property string scanLabel: BluetoothState.scanning ? "Scanning…" : "Scan"
 
     // ── Devices (ListModel, reconciled in place) ────────────────────
-    // BluetoothService wholesale-reassigns BluetoothState.devices on
-    // every poll. See WiFiViewModel for the reconcile rationale:
+    // BluetoothState re-collects devices from the native model on a
+    // 2s reconcile + model changes. See WiFiViewModel for the rationale:
     // remove stale rows, setProperty only changed fields, append new.
     property ListModel devicesModel: ListModel {}
 
@@ -35,7 +36,8 @@ QtObject {
             name: d.name || "Unknown",
             address: d.address,
             subtitle: d.connected ? "Connected" : (d.paired ? "Paired" : ""),
-            connected: d.connected
+            connected: d.connected,
+            paired: d.paired
         }
     }
 
@@ -65,6 +67,7 @@ QtObject {
                 if (cur.name      !== e.name)      m.setProperty(idx, "name", e.name)
                 if (cur.subtitle  !== e.subtitle)  m.setProperty(idx, "subtitle", e.subtitle)
                 if (cur.connected !== e.connected) m.setProperty(idx, "connected", e.connected)
+                if (cur.paired    !== e.paired)    m.setProperty(idx, "paired", e.paired)
             }
         }
     }
@@ -79,9 +82,11 @@ QtObject {
 
     readonly property bool hasDevices: BluetoothState.devices.length > 0
     readonly property bool showEmptyState: BluetoothState.devices.length === 0 && BluetoothState.enabled
+    readonly property string actionStatus: BluetoothState.actionStatus
+    readonly property string lastError: BluetoothState.lastError
 
     // ── Sync on state changes ──────────────────────────────────────
-    Connections {
+    property Connections _stateConn: Connections {
         target: BluetoothState
         function onDevicesChanged() { vm._syncDevices() }
     }
@@ -94,4 +99,5 @@ QtObject {
 
     function connectDevice(address)    { BluetoothState.connectRequested(address) }
     function disconnectDevice(address)  { BluetoothState.disconnectRequested(address) }
+    function pairDevice(address)       { BluetoothState.pairRequested(address) }
 }

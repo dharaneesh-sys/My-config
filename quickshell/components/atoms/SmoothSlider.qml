@@ -29,6 +29,10 @@ Item {
     property real to: 1.0
     property real value: 0.0
     property string label: ""
+    
+    readonly property bool hovered: sliderMouseArea.containsMouse
+    readonly property bool pressed: sliderMouseArea.pressed
+    
     signal moved(real newValue)
 
     // ── Layout ─────────────────────────────────────────────────────
@@ -136,7 +140,7 @@ Item {
             width: smoothSlider._fillWidth
             height: trackBg.height
             radius: height / 2
-            color: Colors.sliderFill
+            color: sliderMouseArea.pressed || sliderMouseArea.containsMouse ? Colors.accent : Colors.sliderFill
         }
 
         // Handle — positioned at the same rounded fill edge, clamped
@@ -157,6 +161,7 @@ Item {
 
     // ── Interaction ────────────────────────────────────────────────
     MouseArea {
+        id: sliderMouseArea
         anchors.fill: trackArea
         hoverEnabled: true
         cursorShape: Qt.PointingHandCursor

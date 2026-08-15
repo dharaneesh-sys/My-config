@@ -1,0 +1,23 @@
+module qs.tokens
+singleton Colors     Colors.qml
+singleton Typography Typography.qml
+singleton Spacing    Spacing.qml
+singleton Radius     Radius.qml
+singleton Motion    Motion.qml
+singleton Elevation  Elevation.qml
+singleton Theme      Theme.qml
+
+# Palette singletons (referenced by Colors.qml)
+singleton Ariadne            palettes/Ariadne.qml
+singleton CatppuccinMacchiato palettes/CatppuccinMacchiato.qml
+singleton CatppuccinMocha    palettes/CatppuccinMocha.qml
+singleton Dracula            palettes/Dracula.qml
+singleton Dynamic            palettes/Dynamic.qml
+singleton Everforest         palettes/Everforest.qml
+singleton Gruvbox            palettes/Gruvbox.qml
+singleton Nightfox           palettes/Nightfox.qml
+singleton Noir               palettes/Noir.qml
+singleton Nord               palettes/Nord.qml
+singleton RosePine           palettes/RosePine.qml
+singleton SolarizedDark      palettes/SolarizedDark.qml
+singleton TokyoNight         palettes/TokyoNight.qml

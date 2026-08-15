@@ -5,6 +5,7 @@ import qs.metrics
 import qs.components.molecules
 import qs.viewmodels
 import qs.components.atoms
+import qs.state
 
 Item {
     id: bluetoothPanel
@@ -19,7 +20,41 @@ Item {
     BluetoothViewModel { id: vm }
 
     width: parent ? parent.width : ShellMetrics.bluetoothWidth
-    height: contentColumn.height
+    implicitHeight: contentColumn.height
+
+    // ── Keyboard navigation ──────────────────────────────────────────────────
+    property int currentIndex: -1
+
+    focus: true
+
+    Keys.onEscapePressed: ExpansionManager.requestCollapse()
+
+    Connections {
+        target: vm.devicesModel
+        function onCountChanged() { bluetoothPanel.currentIndex = -1 }
+    }
+
+    Keys.onDownPressed: {
+        if (vm.devicesModel.count > 0)
+            bluetoothPanel.currentIndex = Math.min(bluetoothPanel.currentIndex + 1,
+                vm.devicesModel.count - 1)
+        event.accepted = true
+    }
+    Keys.onUpPressed: {
+        bluetoothPanel.currentIndex = Math.max(bluetoothPanel.currentIndex - 1, -1)
+        event.accepted = true
+    }
+    Keys.onReturnPressed: {
+        var idx = bluetoothPanel.currentIndex >= 0
+            ? bluetoothPanel.currentIndex : 0
+        if (vm.devicesModel.count > 0) {
+            var item = vm.devicesModel.get(idx)
+            if (item.connected)
+                vm.disconnectDevice(item.address)
+            else
+                vm.connectDevice(item.address)
+        }
+    }
 
     Column {
         id: contentColumn
@@ -46,6 +81,9 @@ Item {
         // Scan button
         ShellButton {
             visible: vm.enabled
+            width: parent.width
+            height: Spacing.button.height
+            fillWidth: true
             text: vm.scanLabel
             iconName: "search"
             disabled: vm.scanning
@@ -71,15 +109,49 @@ Item {
                     iconName: "bluetooth"
                     title: model.name
                     subtitle: model.subtitle
+                    trailing: Component {
+                        ShellButton {
+                            text: model.connected ? "Disconnect" : (model.paired ? "Connect" : "Pair")
+                            iconName: model.connected ? "link_off" : "link"
+                            onClicked: {
+                                if (model.connected)
+                                    vm.disconnectDevice(model.address)
+                                else if (model.paired)
+                                    vm.connectDevice(model.address)
+                                else
+                                    vm.pairDevice(model.address)
+                            }
+                        }
+                    }
+
+                    Rectangle {
+                        anchors.fill: parent
+                        radius: Radius.listItem.background
+                        color: Colors.accentSurface
+                        opacity: index === bluetoothPanel.currentIndex ? 0.3 : 0.0
+                        z: -1
+                        Behavior on opacity { NumberAnimation { duration: Motion.listItem.hoverDuration } }
+                    }
 
                     onClicked: {
                         if (model.connected)
                             vm.disconnectDevice(model.address)
-                        else
+                        else if (model.paired)
                             vm.connectDevice(model.address)
+                        else
+                            vm.pairDevice(model.address)
                     }
                 }
             }
+        }
+
+        ShellText {
+            width: parent.width
+            visible: vm.actionStatus !== "" || vm.lastError !== ""
+            text: vm.lastError !== "" ? vm.lastError : vm.actionStatus
+            role: ShellText.Role.Caption
+            textColor: vm.lastError !== "" ? Colors.error : Colors.fgMuted
+            wrapMode: Text.WordWrap
         }
 
         // Empty state

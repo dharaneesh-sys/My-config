@@ -30,11 +30,13 @@ Item {
     implicitWidth: parent ? parent.width : Spacing.panel.minWidth
 
     // ── Grid metrics ───────────────────────────────────────────────
-    readonly property real _tileSize: Spacing.quickTile.size
+    // Fixed 2-column layout: tiles stretch to fill the row width so
+    // they don't leave dead space in the panel (the old auto-column
+    // count used a fixed tile size that never filled the width).
     readonly property real _tileGap: Spacing.quickTile.gap
-    readonly property int _columns: Math.max(1, Math.floor(
-        (width + _tileGap) / (_tileSize + _tileGap)
-    ))
+    readonly property int _columns: 2
+    readonly property real _tileSize: Spacing.quickTile.size
+    readonly property real _tileWidth: Math.max(1, (width - _tileGap * (_columns - 1)) / _columns)
     readonly property int _rows: Math.ceil(model.count / _columns)
 
     implicitHeight: _rows > 0
@@ -45,19 +47,45 @@ Item {
     Repeater {
         model: grid.model
 
-        QuickToggle {
-            id: tile
+        Item {
+            id: tileDelegate
             required property int index
+            required property string iconName
+            required property string title
+            required property string subtitle
+            required property bool active
 
-            x: (index % grid._columns) * (grid._tileSize + grid._tileGap)
-            y: Math.floor(index / grid._columns) * (grid._tileSize + grid._tileGap)
+            x: (index % grid._columns) * (grid._tileWidth + grid._tileGap)
+            readonly property real layoutY: Math.floor(index / grid._columns) * (grid._tileSize + grid._tileGap)
+            property real entranceOffset: 8
+            property real entranceOpacity: 0
+            y: layoutY + entranceOffset
+            width: grid._tileWidth
+            height: grid._tileSize
+            opacity: grid.visible ? entranceOpacity : 0.0
 
-            iconName: model.iconName || ""
-            title: model.title || ""
-            subtitle: model.subtitle || ""
-            active: model.active || false
+            // A small stagger makes the panel arrive as one composed piece,
+            // while retaining a stable layout and no compositor geometry work.
+            Component.onCompleted: entrance.restart()
+            SequentialAnimation {
+                id: entrance
+                running: false
+                PauseAnimation { duration: tileDelegate.index * Motion.panel.staggerDelay }
+                ParallelAnimation {
+                    NumberAnimation { target: tileDelegate; property: "entranceOpacity"; to: 1; duration: Motion.duration.medium; easing.type: Motion.easing.decelerate }
+                    NumberAnimation { target: tileDelegate; property: "entranceOffset"; to: 0; duration: Motion.duration.medium; easing.type: Motion.easing.decelerate }
+                }
+            }
 
-            onClicked: grid.tileClicked(index)
+            QuickToggle {
+                anchors.fill: parent
+                iconName: parent.iconName
+                title: parent.title
+                subtitle: parent.subtitle
+                active: parent.active
+
+                onClicked: grid.tileClicked(parent.index)
+            }
         }
     }
 }
