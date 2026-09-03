@@ -27,7 +27,7 @@
     "launcherDefaultAction": "launch",
     "launcherMaxResults": 7,
     "launcherShowDescriptions": false,
-    "launcherUsage": "{\"firefox.desktop\":7,\"org.gnome.Nautilus.desktop\":5,\"com.mitchellh.ghostty.desktop\":3,\"brave-browser.desktop\":1,\"org.darktable.darktable\":38,\"libreoffice-startcenter\":3,\"org.wireshark.Wireshark\":1,\"org.kde.spectacle\":1,\"com.obsproject.Studio\":1,\"cachyos-hello\":1,\"ai.opencode.desktop\":6,\"org.kde.plasma.emojier\":1,\"masterpdfeditor4\":4,\"gammastep-indicator\":1,\"antigravity\":1,\"com.cloudflare.WarpTaskbar\":2,\"cursor\":1,\"nwg-look\":1,\"mysql-workbench\":2}",
+    "launcherUsage": "{\"firefox.desktop\":7,\"org.gnome.Nautilus.desktop\":5,\"com.mitchellh.ghostty.desktop\":3,\"brave-browser.desktop\":1,\"org.darktable.darktable\":38,\"libreoffice-startcenter\":3,\"org.wireshark.Wireshark\":1,\"org.kde.spectacle\":1,\"com.obsproject.Studio\":1,\"cachyos-hello\":1,\"ai.opencode.desktop\":6,\"org.kde.plasma.emojier\":1,\"masterpdfeditor4\":4,\"gammastep-indicator\":1,\"antigravity\":1,\"com.cloudflare.WarpTaskbar\":2,\"cursor\":1,\"nwg-look\":1,\"mysql-workbench\":3}",
     "mediaPreferredPlayer": "",
     "mediaShowAlbumArt": true,
     "mediaShowProgress": true,
