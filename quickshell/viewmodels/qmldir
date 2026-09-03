@@ -21,3 +21,5 @@ MediaSettingsViewModel        0.1 MediaSettingsViewModel.qml
 KeybindsSettingsViewModel     0.1 KeybindsSettingsViewModel.qml
 AboutViewModel                0.1 AboutViewModel.qml
 SystemSettingsViewModel       0.1 SystemSettingsViewModel.qml
+ClipboardViewModel            0.1 ClipboardViewModel.qml
+LyricsViewModel 0.1 LyricsViewModel.qml

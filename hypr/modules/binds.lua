@@ -7,28 +7,51 @@ local menu = "rofi -show drun"
 local mainMod = "SUPER"
 
 hl.bind(mainMod .. " + " .. "Q", hl.dsp.window.close())
-hl.bind(
-    mainMod .. " + " .. "M",
-    hl.dsp.exec_cmd("command -v hyprshutdown >/dev/null 2>&1 && hyprshutdown || hyprctl dispatch exit")
-)
+-- QuickShell IPC Keybindings (Original binds commented out below for easy restoration)
+-- Original: hl.bind(mainMod .. " + " .. "M", hl.dsp.exec_cmd("quickshell ipc call mediaPlayer toggle"))
+hl.bind(mainMod .. " + " .. "M", hl.dsp.exec_cmd("quickshell ipc call shell expand media-player"))
 hl.bind("SUPER + SHIFT + Q", hl.dsp.exit())
 hl.bind(mainMod .. "+" .. "SHIFT" .. "+" .. "D", hl.dsp.exec_cmd("opencode"))
 hl.bind(mainMod .. " + " .. "E", hl.dsp.exec_cmd(fileManager))
-hl.bind(mainMod .. " + " .. "R", hl.dsp.exec_cmd("~/.config/waybar/scripts/launch.sh"))
+--hl.bind(mainMod .. " + " .. "R", hl.dsp.exec_cmd("~/.config/waybar/scripts/launch.sh"))
 hl.bind(mainMod .. " + " .. "B", hl.dsp.exec_cmd("brave"))
 hl.bind(mainMod .. " + " .. "SHIFT" .. "+" .. "B", hl.dsp.exec_cmd("blender"))
-hl.bind(mainMod .. " + " .. "SPACE", hl.dsp.exec_cmd(menu))
-hl.bind(mainMod .. " + " .. "SHIFT" .. " + " .. "M", hl.dsp.exec_cmd("hyprlock"))
+
+-- Original: hl.bind(mainMod .. " + " .. "SPACE", hl.dsp.exec_cmd("quickshell ipc call launcher toggle"))
+-- Original: hl.bind(mainMod .. " + " .. "SPACE", hl.dsp.exec_cmd(menu))
+hl.bind(mainMod .. " + " .. "SPACE", hl.dsp.exec_cmd("quickshell ipc call shell expand launcher"))
+
+hl.bind(mainMod .. " + " .. "SHIFT" .. " + " .. "M", hl.dsp.exec_cmd("quickshell ipc call shell lock"))
 hl.bind(mainMod .. " + " .. "SHIFT" .. " + " .. "N", hl.dsp.exec_cmd("vscodium"))
 hl.bind(mainMod .. " + " .. "ALT" .. " + " .. "N", hl.dsp.exec_cmd("zeditor"))
 hl.bind(mainMod .. " + " .. "G", hl.dsp.exec_cmd("ghostty -e nvim"))
-hl.bind(mainMod .. " + " .. "V", hl.dsp.exec_cmd("cliphist list | rofi -dmenu | cliphist decode | wl-copy"))
-hl.bind(mainMod .. " + " .. "N", hl.dsp.exec_cmd("swaync-client -t"))
+hl.bind(mainMod .. " + " .. "V", hl.dsp.exec_cmd("quickshell ipc call shell expand clipboard"))
+hl.bind(mainMod .. " + " .. "L", hl.dsp.exec_cmd("quickshell ipc call shell expand lyrics"))
+hl.bind(mainMod .. " + " .. "N", hl.dsp.exec_cmd("quickshell ipc call shell expand notification-center"))
+-- Original: hl.bind(mainMod .. " + " .. "N", hl.dsp.exec_cmd("swaync-client -t"))
+
 hl.bind(mainMod .. " + " .. "ALT" .. " + " .. "L", hl.dsp.exec_cmd("wlogout"))
--- Super+W / Super+Shift+A / Super+I: visual wallpaper pickers (thumbnail grid)
-hl.bind(mainMod .. " + " .. "W", hl.dsp.exec_cmd("matuwall"))
-hl.bind(mainMod .. " + " .. "I", hl.dsp.exec_cmd("~/.local/bin/wallpaper-app")) -- Super+I: new GTK wallpaper selector (Images)
-hl.bind(mainMod .. " + " .. "T", hl.dsp.exec_cmd("~/.local/bin/theme-selector"))
+
+-- Voice dictation: Handy (local Parakeet STT on Vulkan iGPU)
+hl.bind(mainMod .. " + " .. "ALT" .. " + " .. "V", hl.dsp.exec_cmd("handy --toggle-transcription"))
+
+--hl.bind(mainMod .. " + " .. "W", hl.dsp.exec_cmd("matuwall"))
+hl.bind(mainMod .. " + " .. "W", hl.dsp.exec_cmd("quickshell ipc call shell expandWallpapers theme"))
+
+--hl.bind(mainMod .. " + " .. "T", hl.dsp.exec_cmd("~/.local/bin/theme-selector"))
+hl.bind(mainMod .. " + " .. "T", hl.dsp.exec_cmd("quickshell ipc call shell expand theme-switcher"))
+
+--hl.bind(mainMod .. " + " .. "I", hl.dsp.exec_cmd("~/.local/bin/wallpaper-app"))
+hl.bind(mainMod .. " + " .. "I", hl.dsp.exec_cmd("quickshell ipc call shell expand control-center"))
+-- Full wallpaper directory (Super+Shift+I)
+hl.bind(mainMod .. " + " .. "SHIFT" .. " + " .. "I", hl.dsp.exec_cmd("quickshell ipc call shell expandWallpapers all"))
+
+-- Original: hl.bind(mainMod .. " + " .. "comma", hl.dsp.exec_cmd("quickshell ipc call settings toggle"))
+hl.bind(mainMod .. " + " .. "comma", hl.dsp.exec_cmd("quickshell ipc call shell settingsToggle"))
+hl.bind(mainMod .. " + " .. "Escape", hl.dsp.exec_cmd("quickshell ipc call shell collapse"))
+
+-- Quickshell restart
+hl.bind(mainMod .. " + " .. "SHIFT" .. " + " .. "R", hl.dsp.exec_cmd("pkill quickshell; sleep 0.5; quickshell &"))
 hl.bind(mainMod .. " + " .. "SHIFT" .. " + " .. "T", function()
     hl.dispatch(hl.dsp.window.float({ action = "toggle" }))
     local mons = hl.get_monitors()
@@ -116,7 +139,7 @@ hl.bind(mainMod .. " + " .. "SHIFT" .. " + " .. "8", hl.dsp.window.move({ worksp
 hl.bind(mainMod .. " + " .. "SHIFT" .. " + " .. "9", hl.dsp.window.move({ workspace = 9 }))
 hl.bind(mainMod .. " + " .. "SHIFT" .. " + " .. "0", hl.dsp.window.move({ workspace = 10 }))
 hl.bind("SUPER + C", hl.dsp.window.move({ workspace = "special:magic" }))
-hl.bind("SUPER + SHIFT + C", hl.dsp.window.move({ workspace = " " }))
+hl.bind("SUPER + SHIFT + C", hl.dsp.window.move({ workspace = "+0" }))
 
 
 -- Scroll workspaces
@@ -128,12 +151,12 @@ hl.bind("ALT" .. "+" .. "TAB", hl.dsp.focus({ direction = "r" }))
 hl.bind(mainMod .. " + " .. "mouse:272", hl.dsp.window.drag(), { mouse = true })
 hl.bind(mainMod .. " + " .. "mouse:273", hl.dsp.window.resize(), { mouse = true })
 
--- Screenshots
-hl.bind("Print", hl.dsp.exec_cmd("hyprshot -m region --output-folder ~/Pictures/Screenshots"))
-hl.bind(mainMod .. " + " .. "Print", hl.dsp.exec_cmd("hyprshot -m output --output-folder ~/Pictures/Screenshots"))
+-- Screenshots (grimblast - official hyprwm/contrib tool)
+hl.bind("Print", hl.dsp.exec_cmd("XDG_SCREENSHOTS_DIR=$HOME/Pictures/Screenshots grimblast --freeze --wait 0.5 --notify copysave area"))
+hl.bind(mainMod .. " + " .. "Print", hl.dsp.exec_cmd("XDG_SCREENSHOTS_DIR=$HOME/Pictures/Screenshots grimblast --notify copysave output"))
 hl.bind(
     mainMod .. " + " .. "SHIFT" .. " + " .. "Print",
-    hl.dsp.exec_cmd("hyprshot -m window --output-folder ~/Pictures/Screenshots")
+    hl.dsp.exec_cmd("XDG_SCREENSHOTS_DIR=$HOME/Pictures/Screenshots grimblast --notify copysave active")
 )
 
 local MAX_ZOOM = 3
@@ -170,52 +193,38 @@ hl.bind("SUPER + X", function()
     hl.dispatch(hl.dsp.window.move({ workspace = "special:minimize" }))
     hl.dispatch(hl.dsp.workspace.toggle_special("minimize"))
 end)
-hl.bind("SUPER + F1", function()
-    local game_mode = (hl.get_config("animations.enabled") == false)
+-- Game mode: Super+F1 toggles Hyprland animations + blur off/on.
+-- State lives in quickshell (GameModeState) — this just fires the IPC
+-- call. Only animations + blur are touched (no gaps/borders/shadows).
+hl.bind(mainMod .. " + " .. "F1", hl.dsp.exec_cmd("quickshell ipc call shell gameModeToggle"))
 
-    if game_mode then
-        hl.exec_cmd("hyprctl reload")
-        return
+-- Projector / external display: Super+P cycles extend→mirror→external-only→internal-only
+hl.bind(mainMod .. " + " .. "P", hl.dsp.exec_cmd("~/.config/hypr/scripts/projector.sh"))
+-- Super+Shift+P: toggle mirror mode (quick shortcut for presentations)
+hl.bind(mainMod .. " + SHIFT + P", hl.dsp.exec_cmd("~/.config/hypr/scripts/projector.sh mirror"))
+-- Layout: toggle scrolling/dwindle
+hl.bind(mainMod .. " + SHIFT + S", function()
+    local current = hl.get_config("general:layout")
+    if current == "scrolling" then
+        hl.config({ general = { layout = "dwindle" } })
+        hl.notification.create({ text = "Layout: dwindle", timeout = 1500 })
+    else
+        hl.config({ general = { layout = "scrolling" } })
+        hl.notification.create({ text = "Layout: scrolling", timeout = 1500 })
     end
-
-    hl.config({
-        general = {
-            gaps_in = 0,
-            gaps_out = 0, -- Disable gaps
-            border_size = 0,
-        },
-
-        animations = {
-            enabled = false, -- Disable animations
-        },
-
-        -- Disable blur, shadow and window rounding
-        decoration = {
-            shadow = { enabled = false },
-            blur = { enabled = false },
-            rounding = 0,
-        }
-    })
 end)
--- -- Layout
--- hl.bind(mainMod .. " + " .. "period", hl.dsp.layout("move+col"))
--- hl.bind(mainMod .. " + " .. "comma", hl.dsp.layout("move-col"))
--- hl.bind(mainMod .. " + " .. "SHIFT" .. " + " .. "period", hl.dsp.layout("movewindowtor"))
--- hl.bind(mainMod .. " + " .. "SHIFT" .. " + " .. "comma", hl.dsp.layout("movewindowtol"))
--- hl.bind(mainMod .. " + " .. "SHIFT" .. " + " .. "up", hl.dsp.layout("movewindowtou"))
--- hl.bind(mainMod .. " + " .. "SHIFT" .. " + " .. "down", hl.dsp.layout("movewindowtod"))
 
--- -- Scrolling layout: column management
--- hl.bind(mainMod .. " + " .. "bracketleft", hl.dsp.layout("focus l"))
--- hl.bind(mainMod .. " + " .. "bracketright", hl.dsp.layout("focus r"))
--- hl.bind(mainMod .. " + " .. "SHIFT" .. " + " .. "bracketleft", hl.dsp.layout("promote"))
--- hl.bind(mainMod .. " + " .. "SHIFT" .. " + " .. "bracketright", hl.dsp.layout("swapcol r"))
--- hl.bind(mainMod .. " + " .. "CTRL" .. " + " .. "bracketleft", hl.dsp.layout("swapcol l"))
--- hl.bind(mainMod .. " + " .. "CTRL" .. " + " .. "bracketright", hl.dsp.layout("consume_or_expel next"))
--- hl.bind(mainMod .. " + " .. "ALT" .. " + " .. "bracketleft", hl.dsp.layout("colresize -conf"))
--- hl.bind(mainMod .. " + " .. "ALT" .. " + " .. "bracketright", hl.dsp.layout("colresize +conf"))
--- hl.bind(mainMod .. " + " .. "SHIFT" .. " + " .. "V", hl.dsp.layout("fit_into_view"))
--- hl.bind(mainMod .. " + " .. "CTRL" .. " + " .. "SHIFT" .. " + " .. "F", hl.dsp.layout("fit all"))
+-- Scrolling layout: column management (only active when layout = scrolling)
+hl.bind(mainMod .. " + " .. "bracketleft", hl.dsp.layout("focus l"))
+hl.bind(mainMod .. " + " .. "bracketright", hl.dsp.layout("focus r"))
+hl.bind(mainMod .. " + " .. "SHIFT" .. " + " .. "bracketleft", hl.dsp.layout("promote"))
+hl.bind(mainMod .. " + " .. "SHIFT" .. " + " .. "bracketright", hl.dsp.layout("swapcol r"))
+hl.bind(mainMod .. " + " .. "CTRL" .. " + " .. "bracketleft", hl.dsp.layout("swapcol l"))
+hl.bind(mainMod .. " + " .. "CTRL" .. " + " .. "bracketright", hl.dsp.layout("consume_or_expel next"))
+hl.bind(mainMod .. " + " .. "ALT" .. " + " .. "bracketleft", hl.dsp.layout("colresize -conf"))
+hl.bind(mainMod .. " + " .. "ALT" .. " + " .. "bracketright", hl.dsp.layout("colresize +conf"))
+hl.bind(mainMod .. " + " .. "SHIFT" .. " + " .. "V", hl.dsp.layout("fit visible"))
+hl.bind(mainMod .. " + " .. "CTRL" .. " + " .. "SHIFT" .. " + " .. "F", hl.dsp.layout("fit all"))
 --hl.gesture({
 --	fingers = 3,
 --	direction = "left",
@@ -241,3 +250,14 @@ hl.bind("XF86AudioNext", hl.dsp.exec_cmd("playerctl next"))
 hl.bind("XF86AudioPause", hl.dsp.exec_cmd("playerctl play-pause"))
 hl.bind("XF86AudioPlay", hl.dsp.exec_cmd("playerctl play-pause"))
 hl.bind("XF86AudioPrev", hl.dsp.exec_cmd("playerctl previous"))
+-- Touchpad toggle (IdeaPad touchpad-off button, ideapad-extra-buttons -> XF86TouchpadToggle)
+local touchpadName = "ftcs0038:00-2808:0106-touchpad"
+hl.bind("XF86TouchpadToggle", function()
+    if touchpadState == nil then touchpadState = true end
+    touchpadState = not touchpadState
+    hl.device({ name = touchpadName, enabled = touchpadState })
+    hl.notification.create({
+        text = "Touchpad " .. (touchpadState and "enabled" or "disabled"),
+        timeout = 1500,
+    })
+end)

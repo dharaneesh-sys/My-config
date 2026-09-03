@@ -28,6 +28,9 @@ Item {
     // TextInput consumes arrow keys before they can reach the parent.
     signal navigateUp()
     signal navigateDown()
+    // Delete-key shortcut for list panels that support row removal
+    // (clipboard). Emitted when Delete is pressed inside the TextInput.
+    signal navigateDelete()
 
     // Give the input keyboard focus (called when a panel opens so the
     // user can type / navigate immediately without clicking first).
@@ -40,13 +43,27 @@ Item {
     implicitWidth:  parent ? parent.width : Spacing.panel.minWidth
 
     // ── Background ─────────────────────────────────────────────────
+    // Focus ring — 2px accent at 0.4 when focused, guides typing
+    Rectangle {
+        id: focusRing
+        anchors.fill: fieldBg
+        anchors.margins: -2
+        radius: fieldBg.radius + 2
+        color: "transparent"
+        border.width: 2
+        border.color: Colors.accent
+        opacity: inputField.activeFocus ? 0.4 : 0
+        visible: opacity > 0
+        Behavior on opacity { NumberAnimation { duration: Motion.duration.fast; easing.type: Motion.easing.standard } }
+    }
+
     Rectangle {
         id: fieldBg
         anchors.fill: parent
         radius: Radius.input.background
         color: Colors.inputBg
         border.width: Elevation.button.borderWidth
-        border.color: inputField.activeFocus ? Colors.inputBorderFocus
+        border.color: inputField.activeFocus ? Colors.accent
                                              : Colors.inputBorder
 
         Behavior on border.color {
@@ -110,19 +127,75 @@ Item {
                 searchBar.navigateDown()
                 event.accepted = true
             }
+
+            // Delete removes the selected row in list panels (clipboard).
+            // Intercepts the TextInput's forward-delete so the panel can
+            // act on it instead.
+            Keys.onDeletePressed: (event) => {
+                searchBar.navigateDelete()
+                event.accepted = true
+            }
         }
 
-        // Clear button
-        ShellButton {
+        // Clear button — lightweight circular cross with fade/scale
+        // entrance, circular hover background, and a generous 28px
+        // hit target (vs the old 16px ShellButton) that keeps the
+        // input's reserved width stable so the field never reflows.
+        Item {
             id: clearBtn
-            iconName: "close"
-            visible: inputField.text !== ""
-            implicitHeight: Spacing.icon.small
-            implicitWidth: Spacing.icon.small
+            readonly property bool _show: inputField.text !== ""
+            width: Spacing.icon.medium + Spacing.xs * 2      // 28
+            height: width
+            anchors.verticalCenter: parent.verticalCenter
 
-            onClicked: {
-                inputField.text = ""
-                inputField.forceActiveFocus()
+            opacity: _show ? 1.0 : 0.0
+            scale: _show ? 1.0 : 0.6
+            enabled: _show
+            visible: opacity > 0.01
+
+            Behavior on opacity {
+                NumberAnimation { duration: Motion.duration.fast }
+            }
+            Behavior on scale {
+                NumberAnimation {
+                    duration: Motion.duration.fast
+                    easing.type: Motion.easing.standard
+                }
+            }
+
+            // Circular hover / press background
+            Rectangle {
+                anchors.fill: parent
+                radius: width / 2
+                color: clearMouse.pressed ? Colors.surfaceRaised
+                     : clearMouse.containsMouse ? Colors.surfaceVariant
+                     : "transparent"
+
+                Behavior on color {
+                    ColorAnimation { duration: Motion.button.hoverDuration }
+                }
+            }
+
+            ShellIcon {
+                anchors.centerIn: parent
+                name: "close"
+                iconSize: Spacing.icon.small
+                iconColor: clearMouse.containsMouse ? Colors.fg : Colors.fgMuted
+
+                Behavior on iconColor {
+                    ColorAnimation { duration: Motion.button.hoverDuration }
+                }
+            }
+
+            MouseArea {
+                id: clearMouse
+                anchors.fill: parent
+                hoverEnabled: true
+                cursorShape: Qt.PointingHandCursor
+                onClicked: {
+                    inputField.text = ""
+                    inputField.forceActiveFocus()
+                }
             }
         }
     }

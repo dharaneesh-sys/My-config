@@ -23,7 +23,7 @@ Item {
             label: "Lock"
             action: function() {
                 ExpansionManager.requestCollapse()
-                Quickshell.execDetached(["sh", "-c", "pidof hyprlock >/dev/null || exec hyprlock"])
+                Quickshell.execDetached(["sh", "-c", "exec /home/dinusus/.config/scripts/pantheon-lock.sh"])
             }
         }
         PowerTile {

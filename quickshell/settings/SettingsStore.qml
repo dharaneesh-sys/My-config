@@ -38,9 +38,6 @@ QtObject {
     property string wallpaper: ""
     property string wallpaperBackend: "awww"         // awww (system uses matuwall/awww)
 
-    // ── Blur ──────────────────────────────────────────────────────
-    property bool blurEnabled: true
-    property real blurStrength: 0.6                   // 0.0 – 1.0
 
     // ── Opacity ───────────────────────────────────────────────────
     property real shellOpacity: 1.0                   // 0.0 – 1.0
@@ -59,6 +56,9 @@ QtObject {
     property real pillBottomMargin: 4
     property real pillCornerRadius: 9999              // 9999 = fully rounded
 
+    // ── Notch (Apple-style) ────────────────────────────────────────
+    property bool notchEnabled: false               // true = flat-top notch (200×32), false = floating pill
+
     // ═══════════════════════════════════════════════════════════════
     //  PANELS
     // ═══════════════════════════════════════════════════════════════
@@ -66,7 +66,6 @@ QtObject {
     property real panelMaxWidth: 420
     property real panelPadding: 16
     property real panelCornerRadius: 16
-    property bool panelBlur: true
 
     // ═══════════════════════════════════════════════════════════════
     //  CONTROL CENTER
@@ -86,6 +85,11 @@ QtObject {
     property int launcherMaxResults: 8
     property bool launcherShowDescriptions: true
     property string launcherDefaultAction: "launch"   // launch | terminal
+    // Per-app launch counts, serialized as a JSON object mapping
+    // desktopFile → count. Kept as a string so JsonAdapter round-trips
+    // it without needing a nested object schema. Owned/written by
+    // LauncherState; persisted here so "most opened" survives restarts.
+    property string launcherUsage: "{}"
 
     // ═══════════════════════════════════════════════════════════════
     //  NOTIFICATIONS
@@ -103,6 +107,9 @@ QtObject {
 
     property bool mediaShowAlbumArt: true
     property bool mediaShowProgress: true
+    property bool mediaShowLyrics: true
+    property bool mediaLyricsAutoSync: true           // auto-highlight current line
+    property bool mediaLyricsTranslation: false        // show translation if available (future)
     property string mediaPreferredPlayer: ""           // empty = auto
 
     // ═══════════════════════════════════════════════════════════════
@@ -166,6 +173,8 @@ QtObject {
     property string keybindNotificationCenter: "Super+N"
     property string keybindMedia: "Super+M"
     property string keybindSettings: "Super+Comma"
+    property string keybindClipboard: "Super+V"
+    property string keybindLyrics: "Super+L"
 
     // ═══════════════════════════════════════════════════════════════
     //  SYSTEM
@@ -201,17 +210,16 @@ QtObject {
         // internals, not QML-declared properties, so many settings
         // would miss dirty-tracking signals.
         var props = [
-            "theme", "wallpaper", "wallpaperBackend",
-            "blurEnabled", "blurStrength", "shellOpacity",
+            "theme", "wallpaper", "wallpaperBackend", "shellOpacity",
             "animationsEnabled", "animationSpeed",
-            "pillWidth", "pillHeight", "pillTopMargin", "pillBottomMargin", "pillCornerRadius",
-            "panelMaxWidth", "panelPadding", "panelCornerRadius", "panelBlur",
+            "pillWidth", "pillHeight", "pillTopMargin", "pillBottomMargin", "pillCornerRadius", "notchEnabled",
+            "panelMaxWidth", "panelPadding", "panelCornerRadius",
             "ccShowQuickToggles", "ccShowVolume", "ccShowBrightness", "ccShowMedia",
             "ccShowNotifications", "ccShowBattery",
-            "launcherMaxResults", "launcherShowDescriptions", "launcherDefaultAction",
+            "launcherMaxResults", "launcherShowDescriptions", "launcherDefaultAction", "launcherUsage",
             "notificationPosition", "notificationMaxVisible", "notificationTimeout",
             "notificationShowBody", "notificationShowActions",
-            "mediaShowAlbumArt", "mediaShowProgress", "mediaPreferredPlayer",
+            "mediaShowAlbumArt", "mediaShowProgress", "mediaShowLyrics", "mediaLyricsAutoSync", "mediaLyricsTranslation", "mediaPreferredPlayer",
             "clockUse24h", "clockShowSeconds", "clockTimezone", "clockDateFormat", "clockShowInPill",
             "audioStepPercent", "audioShowInput",
             "brightnessStepPercent", "nightLightEnabled",
@@ -219,7 +227,7 @@ QtObject {
             "powerAutoSuspendMinutes", "powerAutoScreenOffMinutes", "powerShowBatteryInCC",
             "springDamping", "springStiffness", "expandDuration", "collapseDuration",
             "keybindLauncher", "keybindThemeSwitcher", "keybindWallpaperSelector",
-            "keybindNotificationCenter", "keybindMedia", "keybindSettings",
+            "keybindNotificationCenter", "keybindMedia", "keybindSettings", "keybindClipboard", "keybindLyrics",
             "wallpaperDirectory",
             "settingsX", "settingsY", "settingsW", "settingsH", "settingsPageId"
         ]

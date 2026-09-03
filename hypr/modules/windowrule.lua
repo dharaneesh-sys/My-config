@@ -1,14 +1,8 @@
 -- #############################
 -- ## WINDOWS AND WORKSPACES ###
 -- #############################
-hl.layer_rule({
-	match = { namespace = "swaync_control_center" },
-	animation = "slide right",
-})
-hl.layer_rule({
-	match = { namespace = "swaync_notification" },
-	animation = "slide right",
-})
+-- (swaync layer rules removed — notifications now render in the
+--  quickshell notification-center panel; see QUICKSHELL section below)
 hl.window_rule({
 	name = "move-hyprland-run",
 	match = { class = "hyprland-run" },
@@ -48,10 +42,10 @@ hl.window_rule({ match = { class = "com\\.kwimy\\.Matuwall" }, center = true })
 hl.window_rule({ match = { class = "com\\.kwimy\\.Matuwall" }, border_size = 0 })
 hl.window_rule({ match = { class = "com\\.kwimy\\.Matuwall" }, no_shadow = true })
 
--- Matuwall wallpaper picker
-hl.window_rule({ match = { class = "nautilus" }, float = true })
-hl.window_rule({ match = { class = "nautilus" }, size = "900 600" })
-hl.window_rule({ match = { class = "nautilus" }, no_shadow = true })
+-- Nautilus file manager
+hl.window_rule({ match = { class = "org\\.gnome\\.Nautilus" }, float = true })
+hl.window_rule({ match = { class = "org\\.gnome\\.Nautilus" }, size = "900 600" })
+hl.window_rule({ match = { class = "org\\.gnome\\.Nautilus" }, no_shadow = true })
 -- hyprpolkitagent authentication dialog
 hl.window_rule({ match = { class = "hyprpolkitagent" }, float = true })
 hl.window_rule({ match = { class = "hyprpolkitagent" }, center = true })
@@ -76,3 +70,31 @@ hl.window_rule({ match = { class = "^(rofi)$" }, center = true })
 hl.window_rule({ match = { class = "^(rofi)$" }, size = "520 0" })
 hl.window_rule({ match = { class = "^(rofi)$" }, border_size = 0 })
 hl.window_rule({ match = { class = "^(rofi)$" }, no_shadow = true })
+
+-- hyprglass: glass effect on terminal windows only (global enabled=false)
+hl.window_rule({ match = { class = ".*[Gg]hostty.*" },          tag = "+hyprglass_enabled" })
+hl.window_rule({ match = { class = "foot" },                     tag = "+hyprglass_enabled" })
+-- nautilus file manager
+hl.window_rule({ match = { class = "org%.gnome%.Nautilus" }, tag = "+hyprglass_enabled" })
+-- both terminals use default_preset = "subtle"
+
+-- ##############################
+-- ## QUICKSHELL FLOATING UI ####
+-- ##############################
+-- Rounded cards on layer-shell surfaces: only blur the opaque card pixels
+-- (ignore_alpha 0.1) and xray (frost what's BEHIND the surface, not the
+-- surface content), so the global decoration.blur no longer paints a
+-- rectangular ghost box past the rounded panels / across the island strip.
+-- Quickshell: no layer animation — panels animate their own height/opacity
+-- in QML, so Hyprland must not fire layersIn/layersOut (slide right) on map.
+-- All quickshell windows share the default "quickshell" namespace.
+hl.layer_rule({ match = { namespace = "quickshell" }, no_anim = true })
+
+-- slurp area-selection overlay: kill layer animations so grimblast does not
+-- capture the selection border. grimblast injects this rule itself via
+-- `hyprctl keyword layerrule`, but that keyword is a no-op on the non-legacy
+-- parser of Hyprland >= 0.56, so it must live in the config permanently.
+hl.layer_rule({ match = { namespace = "selection" }, no_anim = true })
+
+-- (removed stale per-panel rules: dynamic-island/launcher/settings/theme-picker
+--  — no surface uses those namespaces anymore; see quickshell rule above)

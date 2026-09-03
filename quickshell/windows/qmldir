@@ -2,4 +2,3 @@ module qs.windows
 Shell 0.1 Shell.qml
 PanelSurface 0.1 PanelSurface.qml
 SettingsWindow 0.1 SettingsWindow.qml
-LockScreen 0.1 LockScreen.qml

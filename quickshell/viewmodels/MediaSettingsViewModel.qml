@@ -22,6 +22,9 @@ QtObject {
 
     // ── Progress ──────────────────────────────────────────────────
     readonly property bool showProgress: SettingsStore.mediaShowProgress
+    readonly property bool showLyrics: SettingsStore.mediaShowLyrics
+    readonly property bool lyricsAutoSync: SettingsStore.mediaLyricsAutoSync
+    readonly property bool lyricsTranslation: SettingsStore.mediaLyricsTranslation
 
     // ── Preferred player ───────────────────────────────────────────
     readonly property string preferredPlayer: SettingsStore.mediaPreferredPlayer

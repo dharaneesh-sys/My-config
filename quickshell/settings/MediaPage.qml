@@ -71,6 +71,33 @@ Item {
                             checked: vm.showProgress
                             onToggled: vm.setShowProgress(!vm.showProgress)
                         }
+
+                        ToggleRow {
+                            width: parent.width
+                            iconName: "lyrics"
+                            title: "Show lyrics"
+                            subtitle: "Fetch and display synced lyrics (songs only, not videos)"
+                            checked: vm.showLyrics
+                            onToggled: vm.setShowLyrics(!vm.showLyrics)
+                        }
+
+                        ToggleRow {
+                            width: parent.width
+                            iconName: "autorenew"
+                            title: "Auto-sync lyrics"
+                            subtitle: "Highlight current line and auto-scroll (disable for plain view)"
+                            checked: vm.lyricsAutoSync
+                            onToggled: vm.setLyricsAutoSync(!vm.lyricsAutoSync)
+                        }
+
+                        ToggleRow {
+                            width: parent.width
+                            iconName: "translate"
+                            title: "Show translation"
+                            subtitle: "Display translated lyrics when available (future)"
+                            checked: vm.lyricsTranslation
+                            onToggled: vm.setLyricsTranslation(!vm.lyricsTranslation)
+                        }
                     }
                 }
             }

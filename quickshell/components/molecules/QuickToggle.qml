@@ -42,7 +42,7 @@ Item {
                     : Colors.border
 
         Behavior on color {
-            ColorAnimation { duration: Motion.toggle.trackDuration }
+            ColorAnimation { duration: 200 }
         }
 
         Behavior on border.color {
@@ -85,6 +85,7 @@ Item {
                 name: quickToggle.iconName
                 iconSize: Spacing.quickTile.iconSize
                 iconColor: active ? Colors.accent : Colors.fg
+                filled: active
                 font.weight: active ? Font.Bold : Font.Normal
 
                 Behavior on iconColor {
@@ -124,13 +125,13 @@ Item {
 
     // ── Motion ─────────────────────────────────────────────────────
     y: mouseArea.containsMouse && !mouseArea.pressed ? -2 : 0
-    scale: mouseArea.pressed ? 0.975 : (mouseArea.containsMouse ? 1.0 : 1.0)
+    scale: mouseArea.pressed ? 0.94 : (mouseArea.containsMouse ? 1.0 : 1.0)
 
     Behavior on y {
         NumberAnimation { duration: Motion.duration.fast; easing.type: Motion.easing.decelerate }
     }
 
     Behavior on scale {
-        NumberAnimation { duration: Motion.duration.fast; easing.type: Motion.easing.standard }
+        NumberAnimation { duration: 100; easing.type: Easing.OutCubic }
     }
 }

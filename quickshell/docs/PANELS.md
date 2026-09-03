@@ -108,7 +108,11 @@ The panel content sits inside `panelRect` (a `Rectangle` with a `Region` mask), 
 | **ViewModel** | NotificationCenterViewModel |
 | **State Read** | NotificationState |
 
-**Composition:** PanelHeader (subtitle = unread count), DND ToggleRow, Repeater of NotificationCard (dismiss / mark-read), "Clear All" ShellButton, empty-state ShellText.
+**Composition:** PanelHeader (subtitle = unread count), DND ToggleRow, Repeater of NotificationCard (dismiss / mark-read / action buttons / inline reply), "Clear All" ShellButton, History section (PanelHeader "History", compact rows via `AppIcon` + app name + timestamp + one-line title, "Clear history" ShellButton), empty-state ShellText.
+
+**History persistence:** every received notification is logged into `NotificationState.history` (newest first, capped 50) and persisted to `$XDG_RUNTIME_DIR/quickshell/notification-history.json` — survives `quickshell` restarts, wiped on logout/reboot. Loaded from disk on startup; cleared via the "Clear history" button (`NotificationState.clearHistoryRequested`). Rendered below the active list from `NotificationCenterViewModel.historyModel` (reconciled on `historyChanged`). Dismissed/expired notifications STAY in history (it is a log, not the live list).
+
+**Notification actions & inline reply:** each expanded card renders the native `actions` (invoked via `NotificationAction.invoke()` → DBus `ActionInvoked`). Apps advertising an `"inline-reply"` action (WhatsApp/Telegram/Signal) get a reply field (`TextInput` + send button, Enter submits) wired through `NotificationCenterViewModel.sendInlineReply` → `NotificationState` → `notification.sendInlineReply(text)` (DBus `NotificationReplied`). The redundant "reply" action button is hidden when `hasInlineReply` so the raw actions index stays aligned. **Requires `NotificationState` to set `notification.tracked = true`** — otherwise the native object is destroyed right after the signal and actions/inline-reply silently break (see docs/SERVICES.md).
 
 **Settings affecting it:** `notificationShowBody`, `notificationShowActions`, `notificationMaxVisible`
 

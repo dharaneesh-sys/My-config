@@ -176,10 +176,13 @@ QtObject {
     readonly property color inputBorder:    _active.inputBorder
     readonly property color inputBorderFocus: _active.inputBorderFocus
 
-    // Scrollbar
-    readonly property color scrollbarTrack:      _active.scrollbarTrack
-    readonly property color scrollbarHandle:     _active.scrollbarHandle
-    readonly property color scrollbarHandleHover: _active.scrollbarHandleHover
+    // Scrollbars deliberately use the muted foreground, rather than a
+    // palette's display foreground. Several warm palettes (notably Rosé
+    // Pine) turn a light foreground into a distracting mustard strip when
+    // it is composited over a translucent panel.
+    readonly property color scrollbarTrack: Qt.rgba(_active.fgMuted.r, _active.fgMuted.g, _active.fgMuted.b, 0.08)
+    readonly property color scrollbarHandle: Qt.rgba(_active.fgMuted.r, _active.fgMuted.g, _active.fgMuted.b, 0.55)
+    readonly property color scrollbarHandleHover: Qt.rgba(_active.fgMuted.r, _active.fgMuted.g, _active.fgMuted.b, 0.78)
 
     // Overlay
     readonly property color overlay:        _active.overlay

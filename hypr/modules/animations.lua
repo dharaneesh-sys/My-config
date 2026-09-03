@@ -1,5 +1,3 @@
-
-
 -- ################
 -- ## ANIMATIONS ##
 -- ################
@@ -11,9 +9,9 @@
 -- Curves used: snap, smooth, overshot, linear
 
 hl.config({
-	animations = {
-		enabled = true,
-	},
+    animations = {
+        enabled = true,
+    },
 })
 
 -- Snappy ease-out (fast ramp, smooth settle) — primary curve
@@ -27,36 +25,47 @@ hl.curve("overshot", { type = "bezier", points = { { 0.34, 1.56 }, { 0.64, 1.0 }
 -- Linear — for border-angle spin loop
 hl.curve("linear", { type = "bezier", points = { { 1, 1 }, { 1, 1 } } })
 
+-- Define a spring curve (Material-like physics)
+-- mass, stiffness, dampening
+hl.curve("material-spring", { type = "spring", mass = 1, stiffness = 71.2633, dampening = 15.8273644 })
 
+-- Define a bezier curve for smoother fades if needed
+hl.curve("material-ease", { type = "bezier", points = { {0.2, 0}, {0, 1} } })
+
+-- Apply animations
+hl.animation({ leaf = "windows",       enabled = true,  speed = 0.5,    spring = "material-spring" })
+hl.animation({ leaf = "windowsIn",     enabled = true,  speed = 1,    spring = "material-spring", style = "popin 70%" })
+hl.animation({ leaf = "windowsOut",    enabled = true,  speed = 1,    spring = "material-spring", style = "popin 70%" })
+hl.animation({ leaf = "fade",          enabled = true,  speed = 1,    bezier = "material-ease" })
 -- Windows — fast slide (300ms), close is snappier (200ms)
-hl.animation({ leaf = "windows",    enabled = true, speed = 3, bezier = "snap", style = "slide" })
-hl.animation({ leaf = "windowsIn",  enabled = true, speed = 3, bezier = "snap", style = "slide popin 95%" })
-hl.animation({ leaf = "windowsOut", enabled = true, speed = 2, bezier = "snap", style = "slide" })
-hl.animation({ leaf = "windowsMove",enabled = true, speed = 3, bezier = "snap", style = "slide" })
+-- hl.animation({ leaf = "windows", enabled = true, speed = 3, bezier = "smooth", style = "slide" })
+-- hl.animation({ leaf = "windowsIn", enabled = true, speed = 3, bezier = "smooth", style = "slide popin 95%" })
+-- hl.animation({ leaf = "windowsOut", enabled = true, speed = 2, bezier = "snap", style = "slide" })
+hl.animation({ leaf = "windowsMove", enabled = true, speed = 1, bezier = "snap", style = "slide" })
 
 -- Layers (popups, menus, notifications) — quick (300-400ms)
-hl.animation({ leaf = "layers",    enabled = true, speed = 4, bezier = "snap" })
-hl.animation({ leaf = "layersIn",  enabled = true, speed = 4, bezier = "snap", style = "slide right" })
-hl.animation({ leaf = "layersOut", enabled = true, speed = 3, bezier = "snap", style = "slide right" })
+hl.animation({ leaf = "layers", enabled = true, speed = 3, bezier = "snap" })
+hl.animation({ leaf = "layersIn", enabled = true, speed = 3, bezier = "snap", style = "slide" })
+hl.animation({ leaf = "layersOut", enabled = true, speed = 3, bezier = "snap", style = "slide" })
 
 -- Fades — subtle and brisk (400-500ms)
-hl.animation({ leaf = "fadeIn",     enabled = true, speed = 5, bezier = "smooth" })
-hl.animation({ leaf = "fadeOut",    enabled = true, speed = 5, bezier = "smooth" })
-hl.animation({ leaf = "fadeSwitch", enabled = true, speed = 4, bezier = "smooth" })
-hl.animation({ leaf = "fadeShadow", enabled = true, speed = 5, bezier = "smooth" })
-hl.animation({ leaf = "fadeDim",    enabled = true, speed = 5, bezier = "smooth" })
-hl.animation({ leaf = "fadeLayers", enabled = true, speed = 4, bezier = "smooth" })
+-- hl.animation({ leaf = "fadeIn", enabled = true, speed = 5, bezier = "smooth" })
+-- hl.animation({ leaf = "fadeOut", enabled = true, speed = 5, bezier = "smooth" })
+-- hl.animation({ leaf = "fadeSwitch", enabled = true, speed = 4, bezier = "smooth" })
+-- hl.animation({ leaf = "fadeShadow", enabled = true, speed = 5, bezier = "smooth" })
+-- hl.animation({ leaf = "fadeDim", enabled = true, speed = 5, bezier = "smooth" })
+-- hl.animation({ leaf = "fadeLayers", enabled = true, speed = 4, bezier = "smooth" })
 
 -- Workspaces — slide with bounce (500ms)
 hl.animation({ leaf = "workspaces", enabled = true, speed = 3, bezier = "snap", style = "slide" })
 hl.animation({
-  leaf = "specialWorkspace",
-  enabled = true,
-  speed = 5,
-  bezier = "overshot",
-  style = "slidefadevert 100%",
+    leaf = "specialWorkspace",
+    enabled = true,
+    speed = 3,
+    bezier = "overshot",
+    style = "slidefadevert 100%",
 })
 
 -- Border color transitions — instant feel (200ms)
-hl.animation({ leaf = "border",    enabled = true, speed = 2, bezier = "snap" })
+hl.animation({ leaf = "border", enabled = true, speed = 2, bezier = "snap" })
 hl.animation({ leaf = "borderangle", enabled = true, speed = 20, bezier = "linear", style = "loop" })

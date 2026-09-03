@@ -76,6 +76,8 @@ Item {
                         expanded: notificationCenter.expandedNotificationId === model.notifId
                         actions: vm.actionsFor(model.notifId)
                         hasActionIcons: vm.hasActionIconsFor(model.notifId)
+                        hasInlineReply: vm.hasInlineReplyFor(model.notifId)
+                        inlineReplyPlaceholder: vm.inlineReplyPlaceholderFor(model.notifId)
 
                         onDismissed: vm.dismiss(model.notifId)
                         onClicked: {
@@ -83,6 +85,7 @@ Item {
                             notificationCenter.expandedNotificationId = expanded ? "" : model.notifId
                         }
                         onActionInvoked: vm.invokeAction(model.notifId, actionIndex)
+                        onReplySent: vm.sendInlineReply(model.notifId, text)
                     }
                 }
             }

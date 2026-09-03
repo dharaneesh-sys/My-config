@@ -64,8 +64,6 @@ Item {
             property string theme: "catppuccin-mocha"
             property string wallpaper: ""
             property string wallpaperBackend: "awww"
-            property bool blurEnabled: true
-            property real blurStrength: 0.6
             property real shellOpacity: 1.0
             property bool animationsEnabled: true
             property real animationSpeed: 1.0
@@ -81,7 +79,7 @@ Item {
             property real panelMaxWidth: 420
             property real panelPadding: 16
             property real panelCornerRadius: 16
-            property bool panelBlur: true
+            property bool notchEnabled: false
 
             // ── Control Center ────────────────────────────────
             property bool ccShowQuickToggles: true
@@ -95,6 +93,7 @@ Item {
             property int launcherMaxResults: 8
             property bool launcherShowDescriptions: true
             property string launcherDefaultAction: "launch"
+            property string launcherUsage: "{}"
 
             // ── Notifications ─────────────────────────────────
             property string notificationPosition: "top-right"

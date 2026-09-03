@@ -1,4 +1,5 @@
 import QtQuick
+import QtQuick.Shapes
 
 import qs.tokens
 import qs.metrics
@@ -19,15 +20,16 @@ Item {
     //    are pushed by exactly the pill height, never the panel height.
     //  • Expanded panels live in a SEPARATE window (PanelSurface) that
     //    floats above tiling windows below the pill.
-    //  • Surface geometry is static: no width/height Behaviors, no
-    //    expanded-state bindings. The only motion is the press-scale.
+    //  • Surface geometry has no expanded-state bindings. The notch⇄pill
+    //    toggle morphs size (OutBack) with a brief squash; the only other
+    //    motion is the press-scale.
     // ═══════════════════════════════════════════════════════════════
 
     // ── Public API ─────────────────────────────────────────────────
     /** Opaque/clickable region — Shell binds its mask to this. */
     readonly property alias surface: surface
     /** The active visual is used by the layer-shell input mask. */
-    readonly property Item maskItem: noticeVisible ? noticeSurface : surface
+    readonly property Item maskItem: noticeVisible ? noticeSurface : (ShellMetrics.notchEnabled ? notchSurface : surface)
 
     // ── Pill notification bridge ──────────────────────────────────
     // Volume, brightness, and desktop notifications share one small OSD.
@@ -42,6 +44,8 @@ Item {
     readonly property bool noticeVisible: noticeActive && !ExpansionManager.isExpanded
     // The expanded form settles below the top edge instead of touching it.
     property real noticeDrop: noticeVisible ? 14 : 0
+    readonly property bool panelOpening: ExpansionManager.lifecycle === ExpansionManager.Lifecycle.Opening
+    readonly property bool panelClosing: ExpansionManager.lifecycle === ExpansionManager.Lifecycle.Closing
 
     function showNotice(icon, title, body, value) {
         noticeIcon = icon
@@ -67,20 +71,65 @@ Item {
         }
     }
 
-    // ── Fixed size (never changes) ─────────────────────────────────
-    width:  ShellMetrics.pillWidth
-    height: ShellMetrics.pillHeight
+    // ── Size — pill vs Apple notch ─────────────────────────────────
+    // Notch: 200×32 flat-top, pill: 136×48 capsule. Every panel uses the
+    // same bar, so toggling notchEnabled flips all panels except SettingsWindow.
+    width:  ShellMetrics.notchEnabled ? ShellMetrics.notchWidth : ShellMetrics.pillWidth
+    height: ShellMetrics.notchEnabled ? ShellMetrics.notchHeight : ShellMetrics.pillHeight
+
+    // ── Notch⇄pill morph ───────────────────────────────────────────
+    // Dynamic-Island style: size springs between the two geometries while a
+    // short squash-and-release sells the shape change. morphing is transient —
+    // it clears as soon as the size animation settles.
+    property bool morphing: false
+    scale: morphing ? 0.96 : 1.0
+
+    Behavior on width {
+        NumberAnimation {
+            duration: MotionConfig.duration(220)
+            easing.type: Easing.OutBack
+        }
+    }
+    Behavior on height {
+        NumberAnimation {
+            duration: MotionConfig.duration(220)
+            easing.type: Easing.OutBack
+        }
+    }
+    Behavior on scale {
+        NumberAnimation {
+            duration: MotionConfig.duration(150)
+            easing.type: Motion.easing.standard
+        }
+    }
+
+    Timer {
+        id: morphReset
+        // 0 when animations are disabled → squash releases instantly.
+        interval: MotionConfig.duration(220)
+        onTriggered: pillPanel.morphing = false
+    }
+
+    Connections {
+        target: ShellMetrics
+        function onNotchEnabledChanged() {
+            pillPanel.morphing = true
+            morphReset.restart()
+        }
+    }
 
     // ── The pill surface ───────────────────────────────────────────
+    // ── Pill surface (capsule) — hidden in notch mode ───────────
     Rectangle {
         id: surface
+        visible: !ShellMetrics.notchEnabled
         anchors.fill: parent
 
-        // Solid matte pill (no glass transparency)
+        // Solid matte pill (no glass transparency) — accent border in game mode
         color: Colors.pillBg
         radius: ShellMetrics.pillCornerRadius
-        border.width: Elevation.pill.borderWidth
-        border.color: Colors.pillBorder
+        border.width: 0
+        border.color: "transparent"
         clip: true
         opacity: pillPanel.noticeVisible ? 0.0 : 1.0
 
@@ -91,8 +140,9 @@ Item {
             }
         }
 
-        // Press feedback
-        scale: pillToggle.pressed ? 0.96 : 1.0
+        // The pill briefly compresses before it pours into PanelSurface.
+        // This is a one-shot interaction response, not an idle animation.
+        scale: pillToggle.pressed ? 0.96 : (pillPanel.panelOpening ? 0.92 : 1.0)
         Behavior on scale {
             NumberAnimation {
                 duration: MotionConfig.duration(Motion.duration.micro)
@@ -100,15 +150,30 @@ Item {
             }
         }
 
+        // Game mode indicator — small accent dot when active (Hyprland-only)
+        Rectangle {
+            visible: GameModeState.active && !ShellMetrics.notchEnabled
+            width: 8; height: 8; radius: 4
+            color: Colors.accent
+            anchors.right: parent.right
+            anchors.rightMargin: 10
+            anchors.verticalCenter: parent.verticalCenter
+            border.width: 1
+            border.color: Colors.pillBg
+        }
+
         // ── Clock — the ONLY pill content (reads ClockState) ──────
         Text {
             id: clockLabel
+            visible: !ShellMetrics.notchEnabled
             anchors.centerIn: parent
             text: ClockState.showSeconds ? ClockState.timeSeconds : ClockState.time
             color: Colors.pillFg
             font.family:    Typography.clock.family
             font.pixelSize: Typography.clock.size
-            font.weight:    Typography.clock.weight
+            font.weight: ShellMetrics.notchEnabled ? Font.DemiBold : Typography.clock.weight
+            font.letterSpacing: ShellMetrics.notchEnabled ? 0.3 : 0
+            font.capitalization: ShellMetrics.notchEnabled ? Font.SmallCaps : Font.MixedCase
         }
 
         // ── Toggle: opens the control center ───────────────────────
@@ -122,6 +187,95 @@ Item {
             cursorShape: Qt.PointingHandCursor
             onClicked: ExpansionManager.requestExpand("control-center")
         }
+    }
+
+
+    // ── Notch surface (Apple flat-top) — visible only in notch mode ───
+    // True notch: flat top edge at y=0, only bottom corners rounded (12px).
+    // Uses Shape/Path for per-corner radius — Rectangle radius would round all 4.
+    Shape {
+        id: notchSurface
+        visible: ShellMetrics.notchEnabled
+        anchors.fill: parent
+        preferredRendererType: Shape.CurveRenderer
+        antialiasing: true
+
+        ShapePath {
+            fillColor: Colors.pillBg
+            strokeColor: "transparent"
+            strokeWidth: 0
+            // Flat top, rounded bottom — Apple MacBook notch
+            PathMove { x: 0; y: 0 }
+            PathLine { x: ShellMetrics.notchWidth; y: 0 }
+            PathLine { x: ShellMetrics.notchWidth; y: ShellMetrics.notchHeight - ShellMetrics.notchCornerRadius }
+            PathArc {
+                x: ShellMetrics.notchWidth - ShellMetrics.notchCornerRadius
+                y: ShellMetrics.notchHeight
+                radiusX: ShellMetrics.notchCornerRadius
+                radiusY: ShellMetrics.notchCornerRadius
+                direction: PathArc.Clockwise
+            }
+            PathLine { x: ShellMetrics.notchCornerRadius; y: ShellMetrics.notchHeight }
+            PathArc {
+                x: 0
+                y: ShellMetrics.notchHeight - ShellMetrics.notchCornerRadius
+                radiusX: ShellMetrics.notchCornerRadius
+                radiusY: ShellMetrics.notchCornerRadius
+            }
+            PathLine { x: 0; y: 0 }
+        }
+
+        // Clock centered in notch (hardware style — tight tracking, semibold, small caps)
+        Text {
+            anchors.centerIn: parent
+            text: ClockState.showSeconds ? ClockState.timeSeconds : ClockState.time
+            color: Colors.pillFg
+            font.family: Typography.clock.family
+            font.pixelSize: Typography.clock.size
+            font.weight: Font.DemiBold
+            font.letterSpacing: 0.3
+            font.capitalization: Font.SmallCaps
+            visible: !pillPanel.noticeVisible
+        }
+
+        // Game mode badge for notch — subtle accent when active
+        ShellIcon {
+            visible: GameModeState.active && ShellMetrics.notchEnabled
+            anchors.right: parent.right
+            anchors.rightMargin: 12
+            anchors.verticalCenter: parent.verticalCenter
+            name: "sports_esports"
+            iconSize: 16
+            iconColor: Colors.accent
+            filled: true
+        }
+
+        MouseArea {
+            anchors.fill: parent
+            hoverEnabled: true
+            enabled: !ExpansionManager.isExpanded
+            cursorShape: Qt.PointingHandCursor
+            onClicked: ExpansionManager.requestExpand("control-center")
+        }
+    }
+
+    // A thin accent ring gives the open gesture its water-drop ripple without
+    // a shader, blur, or continuously running animation.
+    Rectangle {
+        id: openingRipple
+        anchors.centerIn: surface
+        width: pillPanel.panelOpening ? surface.width * 1.48 : surface.width
+        height: pillPanel.panelOpening ? surface.height * 2.05 : surface.height
+        radius: height / 2
+        color: "transparent"
+        border.width: 1
+        border.color: Colors.accent
+        opacity: GameModeState.active ? 0 : (pillPanel.panelOpening ? 0.32 : 0.0)
+        visible: opacity > 0
+
+        Behavior on width { NumberAnimation { duration: MotionConfig.duration(150); easing.type: Easing.OutCubic } }
+        Behavior on height { NumberAnimation { duration: MotionConfig.duration(150); easing.type: Easing.OutCubic } }
+        Behavior on opacity { NumberAnimation { duration: MotionConfig.duration(130); easing.type: Easing.OutCubic } }
     }
 
     // This starts at the pill's exact centre and expands sideways.  It is
@@ -259,7 +413,8 @@ Item {
     Connections {
         target: NotificationState
         function onNotificationsChanged() {
-            if (!pillPanel.noticeReady || NotificationState.notifications.length === 0) return
+            if (!pillPanel.noticeReady || !NotificationState._syncComplete) return
+            if (NotificationState.notifications.length === 0) return
             var notification = NotificationState.notifications[0]
             pillPanel.showNotice("notifications", notification.title || notification.appName || "Notification",
                                  notification.body || notification.appName || "", -1)

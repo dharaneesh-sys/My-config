@@ -49,7 +49,6 @@ QtObject {
     function _positionLabel(key) {
         switch (key) {
         case "top-left":      return "Top Left"
-        case "top-right":     return "Top Right"
         case "top-center":    return "Top Center"
         case "bottom-left":   return "Bottom Left"
         case "bottom-right":  return "Bottom Right"

@@ -38,11 +38,11 @@ Item {
         radius: Radius.card.background
         color: selected ? Colors.accentSurface : Colors.surfaceVariant
         border.width: (selected || highlighted) ? Elevation.card.borderWidth + 1 : Elevation.card.borderWidth
-        border.color: (selected || highlighted) ? Colors.accent : Colors.border
+        border.color: (selected || highlighted || mouseArea.containsMouse) ? Colors.accent : Colors.border
         clip: true
 
         Behavior on border.color {
-            ColorAnimation { duration: Motion.toggle.trackDuration }
+            ColorAnimation { duration: 120 }
         }
 
         Behavior on color {
@@ -162,8 +162,8 @@ Item {
         onClicked: wallpaperCard.clicked()
     }
 
-    scale: mouseArea.pressed ? 0.985 : (mouseArea.containsMouse ? 1.012 : 1.0)
+    scale: mouseArea.pressed ? 0.985 : (mouseArea.containsMouse ? 1.015 : 1.0)
     Behavior on scale {
-        NumberAnimation { duration: Motion.button.hoverDuration; easing.type: Motion.easing.standard }
+        NumberAnimation { duration: 120; easing.type: Easing.OutCubic }
     }
 }

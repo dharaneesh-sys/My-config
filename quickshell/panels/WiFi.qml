@@ -60,6 +60,27 @@ Item {
         function onCountChanged() { wifiPanel.currentIndex = -1 }
     }
 
+    // When a connect attempt fails (e.g. the saved secret is stale — the
+    // phone hotspot password changed since last connect), fall back to the
+    // password prompt instead of leaving the user with a dead timeout.
+    // Only auto-prompts when the network is still visible AND secured;
+    // a genuinely out-of-range network just shows the error text.
+    Connections {
+        target: NetworkState
+        function onConnectFailed(ssid, message) {
+            if (!ssid) return
+            for (var i = 0; i < vm.availableNetworksModel.count; i++) {
+                var item = vm.availableNetworksModel.get(i)
+                if (item.rawSsid !== ssid) continue
+                if (!item.secured) return
+                wifiPanel.pendingSsid = ssid
+                wifiPanel.passwordPromptOpen = true
+                passwordInput.forceActiveFocus()
+                return
+            }
+        }
+    }
+
     Keys.onDownPressed: {
         if (vm.availableNetworksModel.count > 0)
             wifiPanel.currentIndex = Math.min(wifiPanel.currentIndex + 1,

@@ -49,9 +49,9 @@ QtObject {
     readonly property color pillFg:         "#e0def4"
     readonly property color pillBorder:     "#191724"
 
-    readonly property color hoverOverlay:   "#e0def408"
-    readonly property color pressedOverlay: "#e0def410"
-    readonly property color selectedBg:     "#c4a7e718"
+    readonly property color hoverOverlay:   "#08e0def4"
+    readonly property color pressedOverlay: "#10e0def4"
+    readonly property color selectedBg:     "#18c4a7e7"
     readonly property color toggleTrack:    "#403d52"
     readonly property color toggleActive:   "#c4a7e7"
     readonly property color sliderTrack:    "#403d52"

@@ -1,5 +1,44 @@
 {
-  "plugin": ["oh-my-openagent@latest"],
+  "plugin": [
+    "oh-my-openagent@latest"
+  ],
   "$schema": "https://opencode.ai/config.json",
-  "model": "opencode/deepseek-v4-flash-free"
+  "model": "opencode/nemotron-3-ultra-free",
+
+  "skills": {
+    "paths": [
+      "~/.omo/sandbox/skills"
+    ]
+  },
+  "lsp": {
+    "qmlls": {
+      "command": [
+        "/usr/lib/qt6/bin/qmlls"
+      ],
+      "extensions": [
+        ".qml",
+        ".qs"
+      ]
+    }
+  },
+  "permission": {
+    "read": {
+      "**/.env*": "ask",
+      "*": "allow"
+    },
+    "edit": "allow",
+    "bash": "allow",
+    "glob": "allow",
+    "grep": "allow"
+  },
+  "command": {
+    "deep-research": {
+      "description": "Multi-step autonomous research: search, read, synthesize, deliver cited report. Use: /deep-research <topic> --deep for extra depth",
+      "template": "You are a deep research agent. Research the topic: $ARGUMENTS\n\nFollow the deep-research workflow:\n1. Search the web from multiple angles\n2. Read top sources in parallel\n3. Dig deeper if partial answers\n4. Synthesize into a structured cited report\n\nThen run: ~/.omo/sandbox/deep-research.sh \"$ARGUMENTS\" to initialize the report file.\n\nDeliver the completed report to the user."
+    },
+    "cron": {
+      "description": "Manage scheduled cron tasks. Usage: /cron list | /cron add <name> '<schedule>' '<cmd>' | /cron remove <name> | /cron log <name>",
+      "template": "Manage scheduled automation tasks using ~/.omo/sandbox/cron-scheduler.sh.\n\nRun the appropriate cron-scheduler.sh command for the user's request:\n- list: ~/.omo/sandbox/cron-scheduler.sh list\n- add: ~/.omo/sandbox/cron-scheduler.sh add $1 '$2' '$3'\n- remove: ~/.omo/sandbox/cron-scheduler.sh remove $1\n- log: ~/.omo/sandbox/cron-scheduler.sh log $1\n\nExplain the result to the user."
+    }
+  }
 }

@@ -17,7 +17,7 @@
   },
   "wall": {
     "wall_mode_only": true,
-    "wall_awww_flags": "--transition-type random --transition-step 18 --transition-fps 60 --transition-duration 2.5"
+    "wall_awww_flags": "-a --transition-type random --transition-step 18 --transition-fps 60 --transition-duration 2.5"
   },
   "theme": {
     "window_bg": "rgba(45, 53, 59, 0.58)",

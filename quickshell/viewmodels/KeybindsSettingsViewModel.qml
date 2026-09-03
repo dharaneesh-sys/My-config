@@ -26,6 +26,8 @@ QtObject {
     readonly property string notificationCenter: SettingsStore.keybindNotificationCenter
     readonly property string media:             SettingsStore.keybindMedia
     readonly property string settings:          SettingsStore.keybindSettings
+    readonly property string clipboard:         SettingsStore.keybindClipboard
+    readonly property string lyrics:            SettingsStore.keybindLyrics
 
     // ── Editing state (placeholder) ────────────────────────────────
     // Tracks which keybind row is in "editing" mode.
@@ -39,7 +41,9 @@ QtObject {
         { key: "wallpaperSelector",  title: "Wallpaper Selector", icon: "wallpaper" },
         { key: "notificationCenter", title: "Notifications",      icon: "notifications" },
         { key: "media",             title: "Media",              icon: "music_note" },
-        { key: "settings",          title: "Settings",           icon: "settings" }
+        { key: "settings",          title: "Settings",           icon: "settings" },
+        { key: "clipboard",         title: "Clipboard",          icon: "content_paste" },
+        { key: "lyrics",            title: "Lyrics",             icon: "lyrics" }
     ]
 
     // ── Helper: read shortcut by key ──────────────────────────────
@@ -51,6 +55,8 @@ QtObject {
         case "notificationCenter": return notificationCenter
         case "media":             return media
         case "settings":          return settings
+        case "clipboard":         return clipboard
+        case "lyrics":            return lyrics
         default:                  return ""
         }
     }
@@ -65,12 +71,26 @@ QtObject {
     }
 
     // ── Actions: write keybind to SettingsStore ───────────────────
-    // Placeholder — these setters exist for future key-capture wiring.
-    // When a real key capture UI is built, it will call these.
+    // The KeybindsPage calls setShortcut(key, value) after key capture;
+    // it dispatches to the per-key setters below.
+    function setShortcut(key, value) {
+        switch (key) {
+        case "launcher":           return setLauncher(value)
+        case "themeSwitcher":      return setThemeSwitcher(value)
+        case "wallpaperSelector":  return setWallpaperSelector(value)
+        case "notificationCenter": return setNotificationCenter(value)
+        case "media":             return setMedia(value)
+        case "settings":          return setSettingsKeybind(value)
+        case "clipboard":         return setClipboard(value)
+        case "lyrics":            return setLyrics(value)
+        }
+    }
+
     function setLauncher(value)            { SettingsStore.keybindLauncher = value }
     function setThemeSwitcher(value)       { SettingsStore.keybindThemeSwitcher = value }
     function setWallpaperSelector(value)   { SettingsStore.keybindWallpaperSelector = value }
     function setNotificationCenter(value)  { SettingsStore.keybindNotificationCenter = value }
     function setMedia(value)              { SettingsStore.keybindMedia = value }
     function setSettingsKeybind(value)    { SettingsStore.keybindSettings = value }
+    function setClipboard(value)          { SettingsStore.keybindClipboard = value }
 }

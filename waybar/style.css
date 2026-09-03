@@ -2,7 +2,7 @@
 
 /* ── Reset ─────────────────────────────────────── */
 * {
-    font-family: 'Iosevka Nerd Font Propo', 'Inter', monospace;
+    font-family: "Iosevka Nerd Font Propo", "Inter", monospace;
     all: unset;
     font-size: 13px;
     font-weight: 600;
@@ -14,9 +14,9 @@
     background: transparent;
 }
 
-.modules-left>widget,
-.modules-center>widget,
-.modules-right>widget {
+.modules-left > widget,
+.modules-center > widget,
+.modules-right > widget {
     margin: 0 28px;
 }
 
@@ -54,13 +54,13 @@ window#waybar {
 #custom-bell,
 #custom-weather,
 #custom-power,
+#custom-power-profile,
 #tray {
     background: @surface_variant;
     border-radius: 16px;
     padding: 2px 12px;
     margin: 4px 6px;
 }
-
 
 /* ── Clock ─────────────────────────────────────── */
 #clock {
@@ -111,19 +111,18 @@ window#waybar {
     margin: 4px;
 }
 
-
-#tray>.tray-item {
+#tray > .tray-item {
     padding: 2px 6px;
     border-radius: 999px;
     transition: all 0.15s ease;
     min-width: 20px;
 }
 
-#tray>.tray-item:hover {
+#tray > .tray-item:hover {
     background: @primary;
 }
 
-#tray>.tray-item>widget>image {
+#tray > .tray-item > widget > image {
     -gtk-icon-transform: scale(1);
 }
 
@@ -177,6 +176,15 @@ window#waybar {
     background: @error;
 }
 
+/* Empty workspaces (niri shows them; dim the pill) */
+#workspaces button.empty {
+    opacity: 0.45;
+}
+
+#workspaces button.empty:hover {
+    opacity: 1;
+}
+
 /* ── Network ───────────────────────────────────── */
 #network {
     color: @secondary;
@@ -215,6 +223,37 @@ window#waybar {
     border-radius: 16px;
 }
 
+/* ── Power Profile ────────────────────────────────── */
+#custom-power-profile {
+    padding: 2px 14px;
+    min-width: 15px;
+}
+
+#custom-power-profile:hover {
+    background: @on_secondary;
+    color: @secondary;
+}
+
+#custom-power-profile.power-saver {
+    background: @on_tertiary;
+    color: @tertiary;
+}
+
+#custom-power-profile.balanced {
+    background: @on_secondary;
+    color: @secondary;
+}
+
+#custom-power-profile.performance {
+    background: @on_primary;
+    color: @primary;
+}
+
+#custom-power-profile:hover {
+    background: @primary;
+    color: @on_primary;
+}
+
 /* ── Battery ───────────────────────────────────── */
 #battery {
     color: @primary;
@@ -222,7 +261,6 @@ window#waybar {
     font-size: 13px;
     border-radius: 16px;
 }
-
 
 #battery:hover {
     background: @primary;

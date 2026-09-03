@@ -16,6 +16,10 @@ hl.config({
     master = {
         new_status = "master",
     },
+    scrolling = {
+        column_width = 0.5,
+        fullscreen_on_one_column = true,
+    },
 })
 -- ################
 -- ## ECOSYSTEM ###

@@ -95,38 +95,6 @@ Item {
             // ── Blur card ──────────────────────────────────────
             SettingsCard {
                 width: parent.width
-                headerText: "Blur"
-                bodyContent: Component {
-                    Column {
-                        spacing: Spacing.xs
-                        width: parent ? parent.width : 0
-
-                        ToggleRow {
-                            width: parent.width
-                            iconName: "blur_on"
-                            title: "Enable blur"
-                            subtitle: "Apply blur behind panels and windows"
-                            checked: vm.blurEnabled
-                            onToggled: vm.setBlurEnabled(!vm.blurEnabled)
-                        }
-
-                        SliderRow {
-                            width: parent.width
-                            iconName: "opacity"
-                            title: "Strength"
-                            from: 0.0
-                            to: 1.0
-                            value: vm.blurStrength
-                            valueText: vm.blurStrengthText
-                            onMoved: vm.setBlurStrength(newValue)
-                        }
-                    }
-                }
-            }
-
-            // ── Opacity card ───────────────────────────────────
-            SettingsCard {
-                width: parent.width
                 headerText: "Opacity"
                 bodyContent: Component {
                     Column {

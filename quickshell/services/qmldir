@@ -4,3 +4,5 @@ WallpaperService 0.1 WallpaperService.qml
 ThemeService 0.1 ThemeService.qml
 PowerService 0.1 PowerService.qml
 ConfigService 0.1 ConfigService.qml
+ClipboardService 0.1 ClipboardService.qml
+LyricsService 0.1 LyricsService.qml

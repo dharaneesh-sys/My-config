@@ -41,11 +41,15 @@ QtObject {
     property bool _ready: false
 
     // Most-specific / prettiest first — first match wins per name.
+    // Papirus-Dark is the active GTK theme; Papirus provides its apps
+    // icons (the -Dark apps dir is a symlink find won't follow). The
+    // user's ~/.local/share/icons themes (MacTahoe, WhiteSur, Win11,
+    // kora, …) serve as fallbacks, then hicolor and the rest.
     readonly property var _dirs: [
-        Quickshell.env("HOME") + "/.local/share/icons",
-        "/usr/share/icons/hicolor",
         "/usr/share/icons/Papirus-Dark",
         "/usr/share/icons/Papirus",
+        Quickshell.env("HOME") + "/.local/share/icons",
+        "/usr/share/icons/hicolor",
         "/usr/share/icons/breeze-dark",
         "/usr/share/icons/breeze",
         "/usr/share/icons/Adwaita",
@@ -67,9 +71,53 @@ QtObject {
     }
 
     function _buildFindCommand() {
+        // Only index what the launcher/notification app icons need:
+        // the apps context at usable sizes, plus flat pixmaps files.
+        // This drops the index from ~134k lines to ~19k — the JS
+        // _index() parse is the startup cost, so fewer lines = faster
+        // icon availability. Flat themes (MacTahoe, kora) put icons
+        // directly under apps/ with no size dir; size-prefixed themes
+        // (Papirus, hicolor) use 48x48/apps etc. Tiny sizes (<=32px)
+        // and @2x variants are pruned — the launcher renders 24px
+        // icons at a 48px sourceSize, so they're never needed.
         var args = ["find"]
         for (var i = 0; i < registry._dirs.length; i++)
             args.push(registry._dirs[i])
+        args.push("(")
+        args.push("-type", "d", "(")
+        args.push("-name", "8x8")
+        args.push("-o", "-name", "16x16")
+        args.push("-o", "-name", "16x16@2x")
+        args.push("-o", "-name", "18x18")
+        args.push("-o", "-name", "18x18@2x")
+        args.push("-o", "-name", "22x22")
+        args.push("-o", "-name", "22x22@2x")
+        args.push("-o", "-name", "24x24")
+        args.push("-o", "-name", "24x24@2x")
+        args.push("-o", "-name", "32x32")
+        args.push("-o", "-name", "32x32@2x")
+        args.push("-o", "-name", "42x42")
+        args.push("-o", "-name", "42x42@2x")
+        args.push("-o", "-name", "48x48@2x")
+        args.push("-o", "-name", "64x64")
+        args.push("-o", "-name", "64x64@2x")
+        args.push("-o", "-name", "84x84")
+        args.push("-o", "-name", "96x96")
+        args.push("-o", "-name", "96x96@2x")
+        args.push("-o", "-name", "128x128")
+        args.push("-o", "-name", "128x128@2x")
+        args.push("-o", "-name", "256x256")
+        args.push("-o", "-name", "256x256@2x")
+        args.push("-o", "-name", "512x512")
+        args.push("-o", "-name", "512x512@2x")
+        args.push("-o", "-name", "1024x1024")
+        args.push(")")
+        args.push("-prune")
+        args.push(")")
+        args.push("-o", "(")
+        args.push("-path", "*/apps/*")
+        args.push("-o", "-path", "*/pixmaps/*")
+        args.push(")")
         args.push("-type", "f")
         args.push("(")
         args.push("-name", "*.png")

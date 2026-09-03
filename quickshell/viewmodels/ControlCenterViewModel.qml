@@ -34,28 +34,34 @@ QtObject {
     property ListModel quickTilesModel: ListModel {
         ListElement { iconName: "wifi";              title: "Wi-Fi";      subtitle: ""; active: false }
         ListElement { iconName: "bluetooth";         title: "Bluetooth";  subtitle: ""; active: false }
-        ListElement { iconName: "contrast";          title: "Theme";      subtitle: ""; active: false }
-        ListElement { iconName: "brightness_4";      title: "Night Light";subtitle: ""; active: false }
+        ListElement { iconName: "bedtime";           title: "Night Light";subtitle: ""; active: false }
+        ListElement { iconName: "battery_saver";     title: "Battery Saver"; subtitle: ""; active: false }
     }
 
     // Index → action closure. Must mirror quickTilesModel row order.
     property var tileActions: [
         function() { ExpansionManager.requestExpand("wifi") },
         function() { ExpansionManager.requestExpand("bluetooth") },
-        function() { ThemeState.nextRequested() },
-        function() { vm.toggleNightLight() }
+        function() { vm.toggleNightLight() },
+        function() { GameModeState.toggleRequested() }
     ]
 
     // Update ListModel in-place when state changes (no delegate churn)
     function _syncModel() {
         if (quickTilesModel.count < 4) return
-        quickTilesModel.setProperty(0, "subtitle", NetworkState.connected ? NetworkState.ssid : "Off")
+        // Icons reflect state: wifi_off when disabled, signal bars when connected
+        quickTilesModel.setProperty(0, "iconName", NetworkState.wifiEnabled ? (NetworkState.connected ? "wifi" : "wifi_off") : "wifi_off")
+        quickTilesModel.setProperty(0, "subtitle", NetworkState.connected ? NetworkState.ssid : (NetworkState.wifiEnabled ? "On" : "Off"))
         quickTilesModel.setProperty(0, "active",   NetworkState.wifiEnabled)
-        quickTilesModel.setProperty(1, "subtitle", BluetoothState.enabled ? "On" : "Off")
+        // Bluetooth: show connected vs plain
+        quickTilesModel.setProperty(1, "iconName", BluetoothState.enabled ? (BluetoothState.connectedDevice !== "" ? "bluetooth_connected" : "bluetooth") : "bluetooth_disabled")
+        quickTilesModel.setProperty(1, "subtitle", BluetoothState.enabled ? (BluetoothState.connectedDevice !== "" ? "Connected" : "On") : "Off")
         quickTilesModel.setProperty(1, "active",   BluetoothState.enabled)
-        quickTilesModel.setProperty(2, "subtitle", ThemeState.currentLabel)
-        quickTilesModel.setProperty(3, "subtitle", vm.nightLightOn ? "On" : "Off")
-        quickTilesModel.setProperty(3, "active",   vm.nightLightOn)
+        quickTilesModel.setProperty(2, "iconName", "bedtime")
+        quickTilesModel.setProperty(2, "subtitle", vm.nightLightOn ? "On" : "Off")
+        quickTilesModel.setProperty(2, "active",   vm.nightLightOn)
+        quickTilesModel.setProperty(3, "subtitle", GameModeState.active ? "On" : "Off")
+        quickTilesModel.setProperty(3, "active",   GameModeState.active)
     }
 
     Component.onCompleted: _syncModel()
@@ -80,6 +86,10 @@ QtObject {
     property Connections _nightLightConn: Connections {
         target: NightLightState
         function onEnabledChanged() { vm._syncModel() }
+    }
+    property Connections _gameModeConn: Connections {
+        target: GameModeState
+        function onActiveChanged() { vm._syncModel() }
     }
 
     // ── Volume ─────────────────────────────────────────────────────

@@ -19,7 +19,7 @@ QtObject {
     // ── Query ──────────────────────────────────────────────────────
     property string query: LauncherState.query
 
-    // ── Results (ListModel, reconciled in place, limited) ──────────
+    // ── Results (ListModel, reconciled in place, unlimited) ────────
     // LauncherState recomputes filteredApplications in-process on every
     // query keystroke and applications change. A fresh JS array per change
     // would destroy + recreate every AppRow delegate (losing hover state
@@ -27,12 +27,14 @@ QtObject {
     // rows, setProperty only changed fields, append new. Typing a query
     // that merely reorders/shrinks the match set mutates only what changed.
     // (docs/KNOWN_LIMITATIONS.md:160)
-    readonly property int maxResults: 8
+    //
+    // No max-results cap: the full sorted list is shown and the panel's
+    // Flickable scrolls it. (docs/KNOWN_LIMITATIONS.md:160)
     property ListModel resultsModel: ListModel {}
 
     function _syncResults() {
         var apps = LauncherState.filteredApplications
-        var count = Math.min(apps.length, maxResults)
+        var count = apps.length
         var m = vm.resultsModel
 
         // 1) Remove rows whose key is no longer in the (trimmed) raw data
@@ -72,8 +74,6 @@ QtObject {
     }
 
     readonly property int totalMatchCount: LauncherState.filteredApplications.length
-    readonly property bool hasMore: totalMatchCount > maxResults
-    readonly property string moreResultsText: "…" + (totalMatchCount - maxResults) + " more results"
 
     // ── Empty state ────────────────────────────────────────────────
     readonly property bool showEmptyState: query !== "" && resultsModel.count === 0

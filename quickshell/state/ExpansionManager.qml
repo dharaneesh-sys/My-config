@@ -62,7 +62,10 @@ QtObject {
         Animated
     }
 
-    property int transitionMode: ExpansionManager.TransitionMode.Instant
+    // PanelSurface owns the visual choreography and reports completion.  The
+    // animated lifecycle prevents the pill and expanded surface from snapping
+    // through intermediate geometry when a panel is opened or closed.
+    property int transitionMode: ExpansionManager.TransitionMode.Animated
 
     // ─── Public API ───────────────────────────────────────────────
 

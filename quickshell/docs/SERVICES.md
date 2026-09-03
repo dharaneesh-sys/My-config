@@ -44,6 +44,29 @@ The eight former services that became native bindings:
 
 ---
 
+## Notification actions & inline replies (`NotificationState`)
+
+**CRITICAL — `tracked = true`:** the native `Notification` object emitted by the server's `notification` signal is **destroyed as soon as the signal handler returns** unless `notification.tracked = true` is set first. Without it, every property (`actions`, `hasActionIcons`, `hasInlineReply`, `inlineReplyPlaceholder`, `hints`, even `appName`) reads as `undefined` on the stored reference, the `trackedNotifications` model stays empty, and the panel renders only the plain fields copied at receive time. Every production config (end-4/dots-hyprland, basecamp/omarchy, snowarch/iNiR, ChrisTitusTech/dwm-titus) sets this. `NotificationState._add()` sets `n.tracked = true` before storing the reference.
+
+**Server capability flags** (`state/NotificationState.qml`):
+- `inlineReplySupported: true` — REQUIRED for WhatsApp/Telegram/Signal reply fields. When false, the app's `"inline-reply"` action is misparsed as a plain button and `sendInlineReply()` hard-fails ("Inline reply support disabled on server").
+- `actionsSupported`, `bodySupported`, etc. default to true unless disabled.
+
+**Native `Notification` API surface** (Quickshell.Services.Notifications):
+- `actions` → `QList<NotificationAction*>` (JS array). Each action: `identifier` (QString), `text` (QString), `invoke()` (emits `ActionInvoked` over DBus, then dismisses unless `resident`).
+- `hasActionIcons` (bool) — when true, `identifier` doubles as an icon name.
+- `hasInlineReply` (bool) + `inlineReplyPlaceholder` (QString) — set when the app includes an `"inline-reply"` action pair.
+- `sendInlineReply(text)` — emits `NotificationReplied` over DBus; the app receives the reply and Quickshell closes the notification afterward (unless resident).
+- `hints` — QVariantMap of all hints sent by the app (e.g. `x-has-reply-action`, `x-reply-placeholder-text`).
+- `tracked` (bool, writable) — must be set to `true` to keep the object alive (see above).
+- `closed(reason)` signal — fires on expiry/dismiss/close-request; `NotificationState._add()` hooks it to remove the card.
+
+**Wiring:** `NotificationCard` renders action buttons from `actions` (hiding the redundant `"reply"` button when `hasInlineReply` — the inline reply field replaces it; the raw actions index stays aligned so `actionInvoked(index)` hits the correct native action). The reply field is a `TextInput` + send `ShellButton`; Enter sends. `onReplySent` → `NotificationCenterViewModel.sendInlineReply(id, text)` → `NotificationState.sendInlineReplyRequested` → `notification.sendInlineReply(text)`. A `"markAsRead"` action button invokes the native action; the card's `onClicked` also marks the notification read locally.
+
+**History persistence:** every received notification is also logged into `NotificationState.history` (newest first, capped at 50) and persisted via `FileView` + `JsonAdapter` to `$XDG_RUNTIME_DIR/quickshell/notification-history.json` (`StandardPaths.RuntimeLocation`). This intentionally survives `quickshell` process restarts but NOT a system reboot/logout — the runtime dir is wiped on logout, so history is a session-scoped log. Loaded on startup (`onLoaded`/`onLoadFailed` → empty history), cleared via `clearHistoryRequested`. Dismissed/expired notifications STAY in history (it is a log, not the live list). `NotificationCenter` shows the History section below the active list (via `NotificationCenterViewModel.historyModel`).
+
+---
+
 ## BrightnessService
 
 **State:** `BrightnessState`

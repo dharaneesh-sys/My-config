@@ -41,11 +41,8 @@ QtObject {
 
     readonly property real panelCornerRadius: SettingsStore.panelCornerRadius
     readonly property string panelCornerRadiusText: Math.round(SettingsStore.panelCornerRadius) + "px"
-
-    // ── Blur ───────────────────────────────────────────────────────
-    readonly property bool blurEnabled: SettingsStore.blurEnabled
-    readonly property real blurStrength: SettingsStore.blurStrength
-    readonly property string blurStrengthText: Math.round(SettingsStore.blurStrength * 100) + "%"
+    // ── Notch (Apple-style) ──────────────────────────────────────
+    readonly property bool notchEnabled: SettingsStore.notchEnabled
 
     // ── Opacity ────────────────────────────────────────────────────
     readonly property real shellOpacity: SettingsStore.shellOpacity
@@ -60,9 +57,7 @@ QtObject {
     function setPanelMaxWidth(val)    { SettingsStore.panelMaxWidth = val }
     function setPanelPadding(val)     { SettingsStore.panelPadding = val }
     function setPanelCornerRadius(val){ SettingsStore.panelCornerRadius = val }
-
-    function setBlurEnabled(val)      { SettingsStore.blurEnabled = val }
-    function setBlurStrength(val)     { SettingsStore.blurStrength = val }
+    function setNotchEnabled(val)     { SettingsStore.notchEnabled = val }
 
     function setShellOpacity(val)     { SettingsStore.shellOpacity = val }
 }

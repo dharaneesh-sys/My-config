@@ -16,3 +16,6 @@ singleton NotificationState    NotificationState.qml
 singleton NightLightState      NightLightState.qml
 singleton ClockState           ClockState.qml
 singleton PowerState           PowerState.qml
+singleton GameModeState        GameModeState.qml
+singleton ClipboardState       ClipboardState.qml
+singleton LyricsState           LyricsState.qml

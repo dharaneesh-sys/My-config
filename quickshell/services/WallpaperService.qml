@@ -4,6 +4,7 @@ import QtQuick
 import Quickshell.Io
 
 import qs.state
+import qs.tokens
 import qs.settings
 
 Item {
@@ -190,6 +191,32 @@ Item {
         }
     }
 
+    // Quickshell Dynamic: matugen → Dynamic palette writable proxy
+    Process {
+        id: matugenProc
+        command: []
+        stdout: StdioCollector { id: matugenOut }
+        onExited: (code, status) => {
+            if (code !== 0) {
+                console.warn("WallpaperService: matugen failed with code " + code)
+                return
+            }
+            try {
+                var data = JSON.parse(matugenOut.text)
+                Dynamic.applyMatugen(data)
+                console.info("WallpaperService: quickshell Dynamic palette updated from " + WallpaperState.currentWallpaper)
+            } catch(e) {
+                console.warn("WallpaperService: matugen JSON parse failed — " + e.message)
+            }
+        }
+    }
+
+    function _updateQuickshellDynamic(path) {
+        if (!path) return
+        matugenProc.command = ["matugen", "image", path, "--json", "hex"]
+        matugenProc.running = true
+    }
+
     // Set by setWallpaper() for Dynamic applies; consumed (and cleared)
     // by writeLastCmd.onExited. Avoids mutating signal handlers, so no
     // stale closure can fire a Dynamic apply after the theme was switched.
@@ -212,6 +239,8 @@ Item {
                 wallpaperService._pendingDynamicPath = ""
                 dynamicCmd.command = [wallpaperService.wallpaperToThemeScript, p]
                 dynamicCmd.running = true
+                // Quickshell Dynamic: same wallpaper, update palette
+                wallpaperService._updateQuickshellDynamic(p)
             }
         }
     }
@@ -264,10 +293,18 @@ Item {
         function onSystemThemeChanged() {
             if (wallpaperService.scope === "theme")
                 wallpaperService._applyScope()
+            // If switched to Dynamic, generate palette from current wallpaper
+            if (ThemeState.systemTheme === "Dynamic" && WallpaperState.currentWallpaper !== "") {
+                wallpaperService._updateQuickshellDynamic(WallpaperState.currentWallpaper)
+            }
         }
     }
 
     Component.onCompleted: {
         wallpaperService._applyScope()
+        // Initial quickshell Dynamic generation if theme already Dynamic
+        if (ThemeState.systemTheme === "Dynamic" && WallpaperState.currentWallpaper !== "") {
+            Qt.callLater(function() { wallpaperService._updateQuickshellDynamic(WallpaperState.currentWallpaper) })
+        }
     }
 }

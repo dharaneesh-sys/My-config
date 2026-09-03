@@ -32,11 +32,6 @@ QtObject {
     // ── Current wallpaper ──────────────────────────────────────────
     readonly property string currentWallpaper: SettingsStore.wallpaper
 
-    // ── Blur ───────────────────────────────────────────────────────
-    readonly property bool blurEnabled: SettingsStore.blurEnabled
-    readonly property real blurStrength: SettingsStore.blurStrength
-    readonly property string blurStrengthText: Math.round(SettingsStore.blurStrength * 100) + "%"
-
     // ── Opacity ────────────────────────────────────────────────────
     readonly property real shellOpacity: SettingsStore.shellOpacity
     readonly property string shellOpacityText: Math.round(SettingsStore.shellOpacity * 100) + "%"
@@ -47,8 +42,6 @@ QtObject {
     readonly property string animationSpeedText: SettingsStore.animationSpeed.toFixed(1) + "×"
 
     // ── Appearance actions (write to SettingsStore) ────────────────
-    function setBlurEnabled(val)     { SettingsStore.blurEnabled = val }
-    function setBlurStrength(val)    { SettingsStore.blurStrength = val }
     function setShellOpacity(val)    { SettingsStore.shellOpacity = val }
     function setAnimationsEnabled(val) { SettingsStore.animationsEnabled = val }
     function setAnimationSpeed(val)  { SettingsStore.animationSpeed = val }

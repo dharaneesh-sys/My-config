@@ -17,10 +17,6 @@ QtObject {
     //  • Emits:  nothing
     // ═══════════════════════════════════════════════════════════════
 
-    // ── Max results ────────────────────────────────────────────────
-    readonly property int maxResults: SettingsStore.launcherMaxResults
-    readonly property string maxResultsText: SettingsStore.launcherMaxResults + " results"
-
     // ── Show descriptions ──────────────────────────────────────────
     readonly property bool showDescriptions: SettingsStore.launcherShowDescriptions
 
@@ -36,7 +32,6 @@ QtObject {
     ]
 
     // ── Actions (all write SettingsStore) ──────────────────────────
-    function setMaxResults(val)          { SettingsStore.launcherMaxResults = Math.round(val) }
     function setShowDescriptions(val)    { SettingsStore.launcherShowDescriptions = val }
     function setDefaultAction(key)       { SettingsStore.launcherDefaultAction = key }
 }

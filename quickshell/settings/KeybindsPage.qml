@@ -119,38 +119,80 @@ Item {
         }
     }
 
-    // Key capture logic
-    focus: true
-    Keys.onPressed: (event) => {
-        if (vm.editingKey !== "") {
-            event.accepted = true;
+    // ── Modal overlay for key capture ────────────────────────────
+    // Dims background and captures all key input when editing.
+    // Blocks clicks to underlying rows and shows explicit prompt.
+    Rectangle {
+        id: keyCaptureOverlay
+        anchors.fill: parent
+        color: "#00000088"
+        visible: vm.editingKey !== ""
+        z: 10
+        // Block clicks to underlying UI
+        MouseArea {
+            anchors.fill: parent
+            onClicked: vm.stopEditing()
+        }
+        // Centered prompt
+        Rectangle {
+            anchors.centerIn: parent
+            width: Math.min(parent.width * 0.8, 420)
+            height: 120
+            radius: 16
+            color: Colors.surface
+            border.width: 1
+            border.color: Colors.accent
+            Column {
+                anchors.centerIn: parent
+                spacing: 8
+                ShellText {
+                    anchors.horizontalCenter: parent.horizontalCenter
+                    text: "Press new shortcut"
+                    role: ShellText.Role.Title
+                    textColor: Colors.fg
+                }
+                ShellText {
+                    anchors.horizontalCenter: parent.horizontalCenter
+                    text: vm.editingKey !== "" ? vm.shortcut(vm.editingKey) + " → press keys" : ""
+                    role: ShellText.Role.Caption
+                    textColor: Colors.fgMuted
+                }
+                ShellText {
+                    anchors.horizontalCenter: parent.horizontalCenter
+                    text: "Esc to cancel"
+                    role: ShellText.Role.Overline
+                    textColor: Colors.fgDisabled
+                }
+            }
+        }
+        // Ensure overlay can capture keys
+        focus: visible
+        Keys.onPressed: (event) => {
+            // Forward to same handler as below
             if (event.key === Qt.Key_Escape) {
-                vm.stopEditing();
-                return;
+                vm.stopEditing()
+                event.accepted = true
+                return
             }
-            
-            // Build modifier string
-            var mods = [];
-            if (event.modifiers & Qt.ControlModifier) mods.push("CTRL");
-            if (event.modifiers & Qt.ShiftModifier) mods.push("SHIFT");
-            if (event.modifiers & Qt.AltModifier) mods.push("ALT");
-            if (event.modifiers & Qt.MetaModifier) mods.push("SUPER");
-            
-            // Get key text if printable, or fallback to key code name
-            var keyStr = event.text.toUpperCase();
+            var mods = []
+            if (event.modifiers & Qt.ControlModifier) mods.push("CTRL")
+            if (event.modifiers & Qt.ShiftModifier) mods.push("SHIFT")
+            if (event.modifiers & Qt.AltModifier) mods.push("ALT")
+            if (event.modifiers & Qt.MetaModifier) mods.push("SUPER")
+            var keyStr = event.text.toUpperCase()
             if (keyStr === "") {
-                if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter) keyStr = "ENTER";
-                else if (event.key === Qt.Key_Space) keyStr = "SPACE";
-                else if (event.key === Qt.Key_Tab) keyStr = "TAB";
-                else keyStr = "KEY_" + event.key; // Fallback
+                if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter) keyStr = "ENTER"
+                else if (event.key === Qt.Key_Space) keyStr = "SPACE"
+                else if (event.key === Qt.Key_Tab) keyStr = "TAB"
+                else keyStr = "KEY_" + event.key
             }
-            
-            if (mods.length > 0) {
-                vm.setShortcut(vm.editingKey, mods.join(" + ") + " + " + keyStr);
-            } else {
-                vm.setShortcut(vm.editingKey, keyStr);
-            }
-            vm.stopEditing();
+            if (mods.length > 0) vm.setShortcut(vm.editingKey, mods.join(" + ") + " + " + keyStr)
+            else vm.setShortcut(vm.editingKey, keyStr)
+            vm.stopEditing()
+            event.accepted = true
         }
     }
+
+    // Focus is handled by overlay when editing; page focus is passive
+    focus: false
 }

@@ -1,6 +1,7 @@
 pragma Singleton
 import QtQuick
 import qs.settings
+import qs.state
 
 // Runtime animation-override layer (plan §B1).
 // tokens/Motion.qml is FROZEN and cannot become writable, so this module is
@@ -9,7 +10,8 @@ import qs.settings
 // from here, so SettingsStore.animationSpeed / animationsEnabled / spring*
 // actually drive the animation system.
 QtObject {
-    readonly property bool animationsEnabled: SettingsStore.animationsEnabled
+    // Game mode disables all quickshell animations — keep functional, drop decorative
+    readonly property bool animationsEnabled: SettingsStore.animationsEnabled && !GameModeState.active
 
     // animationSpeed is a multiplier 0.5 - 2.0; a higher speed means SHORTER
     // durations, so scale by the inverse, clamped to keep extreme values sane.

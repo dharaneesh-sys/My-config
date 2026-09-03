@@ -27,8 +27,6 @@ QtObject {
         "theme",
         "wallpaper",
         "wallpaperBackend",
-        "blurEnabled",
-        "blurStrength",
         "shellOpacity",
         "animationsEnabled",
         "animationSpeed",
@@ -38,11 +36,11 @@ QtObject {
         "pillTopMargin",
         "pillBottomMargin",
         "pillCornerRadius",
+        "notchEnabled",
         // Panels
         "panelMaxWidth",
         "panelPadding",
         "panelCornerRadius",
-        "panelBlur",
         // Control Center
         "ccShowQuickToggles",
         "ccShowVolume",
@@ -54,6 +52,7 @@ QtObject {
         "launcherMaxResults",
         "launcherShowDescriptions",
         "launcherDefaultAction",
+        "launcherUsage",
         // Notifications
         "notificationPosition",
         "notificationMaxVisible",
@@ -63,6 +62,7 @@ QtObject {
         // Media
         "mediaShowAlbumArt",
         "mediaShowProgress",
+        "mediaShowLyrics",
         "mediaPreferredPlayer",
         // Clock & Date
         "clockUse24h",
@@ -94,6 +94,7 @@ QtObject {
         "keybindNotificationCenter",
         "keybindMedia",
         "keybindSettings",
+        "keybindClipboard",
         // System
         "wallpaperDirectory",
         // Window state

@@ -26,7 +26,7 @@ Panel expansion is QML-driven: the inner `panelRect` height springs 0 → conten
 | 1.2 | Pill visible | Observe top of screen | Clock pill centered, showing time |
 | 1.3 | Settings window hidden | Check after startup | Settings window not visible |
 | 1.4 | Config loaded | Check console output | `ConfigService: loaded from <path>` and `SettingsSerializer: applied N settings from config` |
-| 1.5 | Panels registered | Check console output | `Shell: registered 11 panels` |
+| 1.5 | Panels registered | Check console output | `Shell: registered 12 panels` |
 | 1.6 | Persisted theme applied | Observe shell colors | Colors match `SettingsStore.theme` (currently "rose-pine") |
 | 1.7 | Services started | Check console output | 5 services (BrightnessService, WallpaperService, ThemeService, PowerService, ConfigService), no per-service errors |
 | 1.8 | No QML warnings | Check console output | Zero `qrc:` or `ReferenceError` messages |
@@ -65,6 +65,7 @@ Panel expansion is QML-driven: the inner `panelRect` height springs 0 → conten
 | 3.11 | PowerMenu loads | Programmatic expand | Lock/Suspend/Reboot/Shutdown visible |
 | 3.12 | No panel imports State | Static: `grep "import qs.state" panels/*.qml` | Zero results |
 | 3.13 | No panel imports Services | Static: `grep "import qs.services" panels/*.qml` | Zero results |
+| 3.14 | Clipboard loads | Programmatic expand | Search bar + empty/loading placeholder visible |
 
 Panels read State singletons only. Services write to State; panels never touch Services.
 
@@ -132,6 +133,7 @@ Panels read State singletons only. Services write to State; panels never touch S
 | 7.7 | Escape | Expand panel, press Escape | Panel collapses |
 | 7.8 | Dynamic rebind | Change keybind in settings | Old shortcut stops, new shortcut works |
 | 7.9 | Keybind persists | Change keybind, restart | New keybind still active |
+| 7.10 | Super+V | Press Super+V | Clipboard panel expands |
 
 ---
 

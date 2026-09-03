@@ -13,8 +13,10 @@ Item {
     // ═══════════════════════════════════════════════════════════════
     //  LauncherPage
     //
-    //  Launcher settings: max results, description toggle,
-    //  default action. Composed from molecules only.
+    //  Launcher settings: description toggle, default action.
+    //  The result list is fully scrollable (no cap) and sorted
+    //  most-used-first + alphabetical in LauncherState.
+    //  Composed from molecules only.
     //  All controls bind to SettingsStore via
     //  LauncherSettingsViewModel.
     //  Pure view — no logic, no State access.
@@ -54,17 +56,6 @@ Item {
                     Column {
                         spacing: Spacing.xs
                         width: parent ? parent.width : 0
-
-                        SliderRow {
-                            width: parent.width
-                            iconName: "format_list_numbered"
-                            title: "Max results"
-                            from: 1
-                            to: 20
-                            value: vm.maxResults
-                            valueText: vm.maxResultsText
-                            onMoved: vm.setMaxResults(newValue)
-                        }
 
                         ToggleRow {
                             width: parent.width

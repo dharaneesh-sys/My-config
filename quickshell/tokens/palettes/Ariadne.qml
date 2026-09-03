@@ -55,9 +55,9 @@ QtObject {
     readonly property color pillBorder:     "#0a1816"
 
     // ─── Interactive ──────────────────────────────────────────────
-    readonly property color hoverOverlay:   "#f5e2c508"
-    readonly property color pressedOverlay: "#f5e2c510"
-    readonly property color selectedBg:     "#7ad9a818"
+    readonly property color hoverOverlay:   "#08f5e2c5"
+    readonly property color pressedOverlay: "#10f5e2c5"
+    readonly property color selectedBg:     "#187ad9a8"
     readonly property color toggleTrack:    "#1d3631"
     readonly property color toggleActive:   "#7ad9a8"
     readonly property color sliderTrack:    "#1d3631"
@@ -67,9 +67,9 @@ QtObject {
     readonly property color inputBorderFocus: "#7ad9a8"
 
     // ─── Scrollbar ────────────────────────────────────────────────
-    readonly property color scrollbarTrack:      "#f5e2c505"
-    readonly property color scrollbarHandle:     "#f5e2c520"
-    readonly property color scrollbarHandleHover: "#f5e2c535"
+    readonly property color scrollbarTrack:      "#7ad9a808"
+    readonly property color scrollbarHandle:     "#7ad9a84d"
+    readonly property color scrollbarHandleHover: "#7ad9a880"
 
     // ─── Overlay ──────────────────────────────────────────────────
     readonly property color overlay:        "#000000aa"

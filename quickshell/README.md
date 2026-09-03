@@ -57,7 +57,7 @@ Each QML module ships its own `qmldir`.
 | `qs.services` | 5 services that talk to the OS |
 | `qs.viewmodels` | 22 viewmodels, presentation adapters between state and UI |
 | `qs.components` | Root `PillPanel` plus 10 atoms and 18 molecules |
-| `qs.panels` | 11 expandable panel views |
+| `qs.panels` | 12 expandable panel views |
 | `qs.settings` | `SettingsStore` (63 properties), serializer, router, sidebar, stack, pages |
 | `qs.windows` | 4 files: `Shell`, `PanelSurface`, `SettingsWindow`, `LockScreen` |
 | `qs.keybinds` | `IpcHandler`, the IPC surface |
@@ -84,7 +84,7 @@ state singletons; panels only read state and never import services.
 
 ## Panels
 
-Eleven panels are registered in `shell.qml` with approximate sizes. "Full"
+Twelve panels are registered in `shell.qml` with approximate sizes. "Full"
 width means the live `panelMaxWidth` value, around 500; the panel surface
 itself is 600 high.
 
@@ -101,6 +101,7 @@ itself is 600 high.
 | wifi | full (about 500) x 420 |
 | audio | 340 x 300 |
 | power-menu | 280 x 260 |
+| clipboard | full (about 500) x 520 |
 
 ## Keybinds
 
@@ -118,6 +119,7 @@ Default bindings in the Hyprland `binds.lua`:
 | Super+Shift+I | expandWallpapers all |
 | Super+Comma | settingsToggle |
 | Super+Escape | collapse |
+| Super+V | expand clipboard |
 
 ## IPC
 

@@ -19,7 +19,7 @@ Item {
     // Hardware brightness keys run an external brightnessctl helper. Poll at
     // a short interval so its change reaches the pill OSD promptly, while
     // remaining far lighter than a per-frame watcher.
-    property int pollInterval: 300
+    property int pollInterval: 1000
 
     // ── Get brightness ─────────────────────────────────────────────
     Process {

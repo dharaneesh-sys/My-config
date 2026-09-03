@@ -146,10 +146,10 @@ Item {
                 }
             }
 
-            // ── Blur ──────────────────────────────────────────
+                        // ── Notch (Apple-style) ─────────────────────────────────
             SettingsCard {
                 width: parent.width
-                headerText: "Blur"
+                headerText: "Notch"
                 bodyContent: Component {
                     Column {
                         spacing: Spacing.xs
@@ -157,28 +157,16 @@ Item {
 
                         ToggleRow {
                             width: parent.width
-                            iconName: "blur_on"
-                            title: "Enable blur"
-                            subtitle: "Apply blur behind panels and windows"
-                            checked: vm.blurEnabled
-                            onToggled: vm.setBlurEnabled(!vm.blurEnabled)
-                        }
-
-                        SliderRow {
-                            width: parent.width
-                            iconName: "opacity"
-                            title: "Strength"
-                            from: 0.0
-                            to: 1.0
-                            value: vm.blurStrength
-                            valueText: vm.blurStrengthText
-                            onMoved: vm.setBlurStrength(newValue)
+                            iconName: "phone_iphone"
+                            title: "Notch mode"
+                            subtitle: "Apple-style flat-top notch (150×28) instead of floating pill"
+                            checked: vm.notchEnabled
+                            onToggled: vm.setNotchEnabled(!vm.notchEnabled)
                         }
                     }
                 }
             }
 
-            // ── Opacity ───────────────────────────────────────
             SettingsCard {
                 width: parent.width
                 headerText: "Opacity"

@@ -28,12 +28,18 @@ QtObject {
     readonly property real pillCornerRadius: SettingsStore.pillCornerRadius
     // Shared boundary between the exclusive pill bar and every floating
     // expanded panel. Keep this pixel-aligned so both layer surfaces agree.
-    readonly property int pillReservedHeight: Math.ceil(pillTopMargin
-                                                        + pillHeight
-                                                        + pillBottomMargin)
+    // Notch dimensions (Apple-style flat-top) — used by pillReservedHeight
+    readonly property bool notchEnabled: SettingsStore.notchEnabled
+    readonly property real notchWidth: 150
+    readonly property real notchHeight: 28
+    readonly property real notchCornerRadius: 10
+
+    readonly property int pillReservedHeight: notchEnabled
+                                                        ? Math.ceil(notchHeight)
+                                                        : Math.ceil(pillTopMargin + pillHeight + pillBottomMargin)
     // Visual attachment point for expanded panels. Unlike the reserved
     // height, this intentionally excludes the bottom safety margin.
-    readonly property real pillBottomEdge: pillTopMargin + pillHeight
+    readonly property real pillBottomEdge: notchEnabled ? notchHeight : pillTopMargin + pillHeight
 
     // ─── Expanded surface (live from SettingsStore) ─────────────
     readonly property real expandedPadding:  SettingsStore.panelPadding
@@ -42,9 +48,7 @@ QtObject {
     // Keeping its geometry stable prevents compositor configure jitter.
     readonly property real panelSurfaceHeight: 600
 
-    // ─── Panel blur/opacity (live from SettingsStore) ──────────
-    readonly property bool panelBlurEnabled: SettingsStore.blurEnabled
-    readonly property real panelBlurStrength: SettingsStore.blurStrength
+    // ─── Opacity (live from SettingsStore) ──────────────────────────
     readonly property real shellOpacity:     SettingsStore.shellOpacity
 
     // ─── Panel preferred widths ──────────────────────────────────
@@ -70,6 +74,9 @@ QtObject {
     readonly property real wifiWidth:               panelFullWidth    // live
     readonly property real audioWidth:              panelCompactWidth // 340
     readonly property real powerMenuWidth:          panelNarrowWidth  // 280
+    // Clipboard history benefits from the full-width list (launcher-like).
+    readonly property real clipboardWidth:          panelFullWidth    // live
+    readonly property real lyricsWidth:             panelFullWidth    // live — separate Lyrics panel
 
     // ─── Settings window ─────────────────────────────────────────
     readonly property real settingsDefaultWidth:  Spacing.settings.defaultW   // 576

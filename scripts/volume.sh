@@ -23,28 +23,6 @@ is_muted() {
 }
 
 # ===============================
-# Send notification (with slider)
-# ===============================
-notify() {
-    if is_muted; then
-        notify-send \
-            -e \
-            -h string:x-canonical-private-synchronous:volume \
-            -u low \
-            -i "$ICON" \
-            "Volume" "Muted"
-    else
-        notify-send \
-            -e \
-            -h string:x-canonical-private-synchronous:volume \
-            -h int:value:"$1" \
-            -u low \
-            -i "$ICON" \
-            "Volume" "Volume: $1%"
-    fi
-}
-
-# ===============================
 # Change volume
 # ===============================
 change() {
@@ -54,9 +32,8 @@ change() {
         mute) wpctl set-mute @DEFAULT_AUDIO_SINK@ toggle ;;
     esac
 
-    vol=$(get_volume)
-    (( vol > MAX )) && vol=$MAX
-    notify "$vol"
+    # Quickshell observes PipeWire directly and presents the pill OSD.
+    # Do not call notify-send: control changes are not notification history.
 }
 
 # ===============================
@@ -69,4 +46,3 @@ case "$1" in
     --mute) change mute ;;
     *)      get_volume ;;
 esac
-

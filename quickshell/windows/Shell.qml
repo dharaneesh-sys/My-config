@@ -69,7 +69,7 @@ PanelWindow {
         id: pillPanel
         anchors {
             top: parent.top
-            topMargin: ShellMetrics.pillTopMargin
+            topMargin: ShellMetrics.notchEnabled ? 0 : ShellMetrics.pillTopMargin
             horizontalCenter: parent.horizontalCenter
         }
     }

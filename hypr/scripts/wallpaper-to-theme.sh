@@ -19,7 +19,7 @@ mkdir -p "$DYNAMIC_DIR"
 PALETTE="$DYNAMIC_DIR/palette"
 
 # Generate the entire palette via a single Python script that reads matugen JSON from stdin
-matugen image "$WALLPAPER" --json hex --prefer value 2>/dev/null | python3 -c "
+matugen image "$WALLPAPER" --json hex --source-color-index 0 2>/dev/null | python3 -c "
 import json, sys
 
 data = json.load(sys.stdin)

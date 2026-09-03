@@ -61,8 +61,7 @@ QtObject {
         SettingsStore.theme             = "tokyo-night"
         SettingsStore.wallpaper         = ""
         SettingsStore.wallpaperBackend  = "swww"
-        SettingsStore.blurEnabled       = true
-        SettingsStore.blurStrength      = 0.6
+        SettingsStore.notchEnabled        = false
         SettingsStore.shellOpacity      = 1.0
         SettingsStore.animationsEnabled = true
         SettingsStore.animationSpeed    = 1.0
@@ -74,7 +73,6 @@ QtObject {
         SettingsStore.panelMaxWidth     = 420
         SettingsStore.panelPadding      = 16
         SettingsStore.panelCornerRadius = 16
-        SettingsStore.panelBlur         = true
         SettingsStore.ccShowQuickToggles = true
         SettingsStore.ccShowVolume       = true
         SettingsStore.ccShowBrightness   = true

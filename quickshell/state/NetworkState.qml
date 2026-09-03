@@ -104,6 +104,10 @@ QtObject {
     signal connectRequested(string ssid, string password)
     signal disconnectRequested()
     signal scanRequested()
+    // Emitted when a connect attempt fails, so the panel can offer a
+    // password fallback (a saved secret may be stale — e.g. the phone
+    // hotspot password changed since the last successful connect).
+    signal connectFailed(string ssid, string message)
 
     // Connection feedback is surfaced by the Wi-Fi panel. NetworkManager's
     // native connect API handles saved profiles, while nmcli gives us a
@@ -115,13 +119,19 @@ QtObject {
         command: []
         stderr: StdioCollector { id: connectError }
         onExited: (code, status) => {
+            var failedSsid = networkState.connectingSsid
             if (code === 0) {
                 networkState.connectionStatus = "Connected to " + networkState.connectingSsid
                 networkState.lastError = ""
                 networkState.scanRequested()
             } else {
                 networkState.connectionStatus = ""
-                networkState.lastError = connectError.text.trim() || "Could not connect"
+                var msg = connectError.text.trim() || "Could not connect"
+                networkState.lastError = msg
+                // Surface a fallback signal so the panel can re-prompt for a
+                // password when the saved secret is stale.
+                if (failedSsid)
+                    networkState.connectFailed(failedSsid, msg)
             }
             networkState.connectingSsid = ""
         }
@@ -166,11 +176,15 @@ QtObject {
             networkState.lastError = ""
             var command
             if (password === "" && networkState.isSavedNetwork(ssid)) {
-                // Activating the stored profile uses NetworkManager's saved
-                // secret and therefore must not prompt for a password again.
-                command = ["nmcli", "--wait", "20", "connection", "up", "id", ssid]
+                // `device wifi connect` resolves the network by the scanned
+                // access point, not by profile name. `connection up id` trusts
+                // the profile name, which breaks when duplicate/stale profiles
+                // exist for the same SSID (the wrong one gets activated and
+                // the connection times out). nmcli still reuses the saved
+                // secret from the matching profile, so no re-prompt occurs.
+                command = ["nmcli", "--wait", "30", "device", "wifi", "connect", ssid]
             } else {
-                command = ["nmcli", "device", "wifi", "connect", ssid]
+                command = ["nmcli", "--wait", "30", "device", "wifi", "connect", ssid]
                 if (password !== "") command.push("password", password)
             }
             networkState._connectProcess.command = command

@@ -36,19 +36,6 @@ get_icon() {
 }
 
 # -------------------------------
-# Send notification
-# -------------------------------
-notify_user() {
-    notify-send \
-        -e \
-        -h string:x-canonical-private-synchronous:brightness_notif \
-        -h int:value:"$current" \
-        -u low \
-        -i "$icon" \
-        "Screen" "Brightness: $current%"
-}
-
-# -------------------------------
 # Change brightness
 # -------------------------------
 change_backlight() {
@@ -69,9 +56,8 @@ change_backlight() {
     fi
 
     brightnessctl set "${new_brightness}%"
-    get_icon
-    current=$new_brightness
-    notify_user
+    # Quickshell updates BrightnessState and drives the pill OSD.
+    # Suppress notify-send so this does not enter notification history.
 }
 
 # -------------------------------
@@ -91,4 +77,3 @@ case "$1" in
         get_backlight
         ;;
 esac
-

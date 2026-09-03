@@ -78,6 +78,7 @@ ShellRoot {
         id: configServiceInstance
         configPath: StandardPaths.writableLocation(StandardPaths.ConfigLocation) + "/quickshell/settings.json"
     }
+    ClipboardService {}
 
     // ── Eager state instantiation ─────────────────────────────────
     // NotificationState is a lazily-created singleton; referencing it
@@ -88,6 +89,10 @@ ShellRoot {
     // Keep night-light state alive from startup so the saved temperature is
     // reapplied even before the control center is opened.
     readonly property var nightLightStateRef: NightLightState
+    // Eagerly load GameModeState so its startup sync (hyprctl getoption)
+    // runs at boot, not on the first F1 press — avoids a race where the
+    // sync could read pre-toggle state and flip the flag back.
+    readonly property var gameModeStateRef: GameModeState
 
     // ═══════════════════════════════════════════════════════════════
     //  LIVE SETTINGS→RUNTIME BRIDGE
@@ -177,6 +182,14 @@ ShellRoot {
 
         function onKeybindSettingsChanged() {
             ipcHandler.updateKeybind("settings", SettingsStore.keybindSettings)
+        }
+
+        function onKeybindClipboardChanged() {
+            ipcHandler.updateKeybind("clipboard", SettingsStore.keybindClipboard)
+        }
+
+        function onKeybindLyricsChanged() {
+            ipcHandler.updateKeybind("lyrics", SettingsStore.keybindLyrics)
         }
     }
 
@@ -296,6 +309,20 @@ ShellRoot {
             Qt.resolvedUrl("panels/PowerMenu.qml"),
             ShellMetrics.powerMenuWidth,
             260
+        )
+
+        ExpansionRegistry.register(
+            "clipboard",
+            Qt.resolvedUrl("panels/Clipboard.qml"),
+            ShellMetrics.clipboardWidth,
+            520
+        )
+
+        ExpansionRegistry.register(
+            "lyrics",
+            Qt.resolvedUrl("panels/Lyrics.qml"),
+            ShellMetrics.lyricsWidth,
+            520
         )
 
         console.info("Shell: registered %1 panels".arg(ExpansionRegistry.count))

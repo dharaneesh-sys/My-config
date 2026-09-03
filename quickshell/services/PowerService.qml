@@ -20,7 +20,7 @@ Item {
     // ── Session processes ──────────────────────────────────────────
     Process {
         id: lockProcess
-        command: ["sh", "-c", "pidof hyprlock >/dev/null || exec hyprlock"]
+        command: ["sh", "-c", "exec /home/dinusus/.config/scripts/pantheon-lock.sh"]
     }
 
     Process {
