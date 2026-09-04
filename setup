@@ -1,64 +1,319 @@
 #!/usr/bin/env bash
+#
+# setup — bootstrap this dotfiles repo on a fresh CachyOS/Arch machine.
+#
+# Safe by design (post-lean):
+#   - NEVER deletes ~/.config, ~/.local/bin, or ~/Pictures. Backups use
+#     timestamped copies (cp -a), never mv-overwrite.
+#   - Wallpaper binaries are NOT in My-config anymore (lean 0fb9f8ba).
+#     They come from the dedicated wallpapers repo -> ~/wallpapers,
+#     then seed ~/Pictures/Themes + ~/Pictures/Wallpapers via rsync.
+#   - Sudo uses the native prompt (sudo -v). No password variables, ever.
+#   - Idempotent: re-runs pull/rsync instead of failing on second run.
+#   - Nothing runs unless you confirm, pass --yes, or pass --dry-run to preview.
+#
+# Usage:
+#   ./setup [--yes] [--no-packages] [--wallpapers-only] [--dry-run] [--help]
+#
 set -euo pipefail
-if ! git clone "https://github.com/dharaneesh-sys/My-config.git" /tmp/My-config; then
-  exit 1
-fi
 
-printf "Cloning repository to tmp \n Making Backup of config directory \n"
-if ! [[ -d ~/.config.bak ]]; then
-  mv ~/.config/ ~/.config.bak
-else
-  mv ~/.config/ ~/.config.backup
-fi
+CONFIG_REPO="https://github.com/dharaneesh-sys/My-config.git"
+WALLPAPERS_REPO="https://github.com/dharaneesh-sys/wallpapers.git"
+CONFIG_DIR="$HOME/.config"
+LOCAL_BIN="$HOME/.local/bin"
+WALLPAPERS_DIR="$HOME/wallpapers"
+PICTURES_THEMES="$HOME/Pictures/Themes"
+PICTURES_WALLPAPERS="$HOME/Pictures/Wallpapers"
 
-echo "Moving config"
+ASSUME_YES=0
+NO_PACKAGES=0
+WALLPAPERS_ONLY=0
+DRY_RUN=0
 
-mv /tmp/My-config ~/.config
+log()  { printf '[setup] %s\n' "$*"; }
+warn() { printf '[setup:WARN] %s\n' "$*" >&2; }
+die()  { printf '[setup:ERROR] %s\n' "$*" >&2; exit 1; }
 
-echo "Moving wallpapers to appropriate directory"
+usage() {
+  cat <<'EOF'
+Usage: ./setup [options]
 
-cd ~/.config && mv ~/.config/wallpapers/ ~/Pictures/ && mv ~/.config/themes/ ~/Pictures/Themes/
+Bootstrap My-config dotfiles on a fresh machine.
 
-echo "Moving scripts to local/bin"
+Options:
+  -y, --yes            Assume yes to all prompts (non-interactive)
+      --no-packages    Skip pacman/AUR installs (dotfiles + wallpapers only)
+      --wallpapers-only Only sync wallpapers (skip dotfiles + packages)
+      --dry-run        Print what would happen, change nothing
+  -h, --help           Show this help
 
-if ! [[ -d ~/.local/bin.bak ]]; then
-  mv ~/.local/bin/ ~/.local/bin.bak/
-else
-  mv ~/.local/bin/ ~/.local/bin.backup/
-fi
+What it does:
+  1. Backs up ~/.config to ~/.config.bak.<timestamp> (copy, never move)
+  2. Clones/updates My-config into ~/.config (pull if already the repo)
+  3. Clones/updates wallpapers repo into ~/wallpapers
+  4. Seeds ~/Pictures/Themes + ~/Pictures/Wallpapers via rsync (never mv)
+  5. Rsyncs local/bin/ -> ~/.local/bin (keeps existing files)
+  6. Installs pacman + AUR packages (unless --no-packages)
+  7. Enables hyprpm plugin (guarded, only if hyprland runs)
+  8. Verifies: hyprctl reload, quickshell binary, theme-switcher present
+EOF
+}
 
-mv ~/.config/local/bin/ ~/.local/bin/
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    -y|--yes) ASSUME_YES=1; shift ;;
+    --no-packages) NO_PACKAGES=1; shift ;;
+    --wallpapers-only) WALLPAPERS_ONLY=1; shift ;;
+    --dry-run) DRY_RUN=1; shift ;;
+    -h|--help) usage; exit 0 ;;
+    *) die "unknown flag: $1 (see --help)" ;;
+  esac
+done
 
-read -r -s -p "Enter sudo password: " passwd
+# In dry-run mode, wrap mutating commands so they only echo.
+run() {
+  if [[ "$DRY_RUN" -eq 1 ]]; then
+    printf '[dry-run] %s\n' "$*"
+  else
+    "$@"
+  fi
+}
 
-echo "$passwd" | sudo -S -v
+confirm() {
+  local prompt="$1"
+  if [[ "$ASSUME_YES" -eq 1 ]]; then return 0; fi
+  local ans
+  read -r -p "$prompt [y/N] " ans
+  [[ "$ans" == "y" || "$ans" == "Y" ]]
+}
 
-unset passwd
+need_cmd() {
+  command -v "$1" >/dev/null 2>&1 || die "required command missing: $1"
+}
 
-echo "Installing neccesary packages"
+timestamp() { date +%Y%m%d_%H%M%S; }
 
-sudo pacman -S --needed --noconfirm hyprlock waybar swaync ghostty tmux neovim cava rofi networkmanager \
-  topgrade wlogout python-gobject
+backup_copy() {
+  local src="$1" dest_base="$2"
+  [[ -e "$src" ]] || return 0
+  local dest
+  dest="${dest_base}.$(timestamp)"
+  log "backing up $src -> $dest"
+  run cp -a "$src" "$dest"
+}
 
-echo "Installing from AUR"
+sync_repo() {
+  local url="$1" dest="$2"
+  if [[ -d "$dest/.git" ]]; then
+    local current
+    current=$(git -C "$dest" remote get-url origin 2>/dev/null || true)
+    if [[ "${current%.git}" == "${url%.git}" ]]; then
+      log "updating $dest (git pull --ff-only)"
+      run git -C "$dest" pull --ff-only
+      return 0
+    fi
+    warn "$dest is a different repo ($current). Backing up and cloning fresh."
+    backup_copy "$dest" "${dest}.bak"
+  elif [[ -e "$dest" ]]; then
+    warn "$dest exists but is not a git repo. Backing up."
+    backup_copy "$dest" "${dest}.bak"
+  fi
+  log "cloning $url -> $dest"
+  run git clone --depth 1 "$url" "$dest"
+}
 
-paru --noconfirm networkmanager_dmenu-git hyprland-git
+install_dotfiles() {
+  log "== dotfiles =="
+  need_cmd git
+  need_cmd rsync
 
-echo "Installing Hyprland Plugins"
+  if [[ -d "$CONFIG_DIR/.git" ]]; then
+    local current
+    current=$(git -C "$CONFIG_DIR" remote get-url origin 2>/dev/null || true)
+    if [[ "${current%.git}" == "${CONFIG_REPO%.git}" ]]; then
+      log "$CONFIG_DIR already My-config, pulling"
+      run git -C "$CONFIG_DIR" pull --ff-only
+    else
+      warn "$CONFIG_DIR is another repo. Backing up, then cloning."
+      backup_copy "$CONFIG_DIR" "$HOME/.config.bak"
+      sync_repo "$CONFIG_REPO" "$CONFIG_DIR"
+    fi
+  elif [[ -e "$CONFIG_DIR" ]]; then
+    backup_copy "$CONFIG_DIR" "$HOME/.config.bak"
+    # Merge clone into place without deleting untracked user files.
+    local tmp
+    tmp=$(mktemp -d)
+    if [[ "$DRY_RUN" -eq 0 ]]; then
+      # shellcheck disable=SC2064
+      trap "rm -rf '$tmp'" EXIT
+    fi
+    log "cloning to temp, rsyncing into $CONFIG_DIR"
+    run git clone --depth 1 "$CONFIG_REPO" "$tmp/repo"
+    run rsync -a --no-perms "$tmp/repo/" "$CONFIG_DIR/"
+    run rm -rf "$tmp"
+    if [[ "$DRY_RUN" -eq 0 ]]; then trap - EXIT; fi
+  else
+    sync_repo "$CONFIG_REPO" "$CONFIG_DIR"
+  fi
 
-hyprpm add https://github.com/yayuuu/hyprland-scroll-overview.git
+  # local/bin -> ~/.local/bin via rsync (never mv; keeps existing tools).
+  if [[ -d "$CONFIG_DIR/local/bin" ]]; then
+    log "syncing local/bin/ -> $LOCAL_BIN (rsync, backup overwrites)"
+    run mkdir -p "$LOCAL_BIN"
+    run rsync -a --backup --suffix=".bak.$(timestamp)" "$CONFIG_DIR/local/bin/" "$LOCAL_BIN/"
+    run chmod -R u+x "$LOCAL_BIN"
+  else
+    warn "$CONFIG_DIR/local/bin missing, skipping bin sync"
+  fi
+}
 
-hyprpm update
+install_wallpapers() {
+  log "== wallpapers =="
+  need_cmd git
+  need_cmd rsync
+  sync_repo "$WALLPAPERS_REPO" "$WALLPAPERS_DIR"
 
-hyprpm enable scrolloverview
-echo "Everything is Completed Good Luck!!!"
+  # Seed Pictures dirs from ~/wallpapers (rsync, never move/delete source).
+  # Layout: wallpapers repo has themes/<Theme>/* + wallpapers/* + general/*.
+  log "seeding $PICTURES_THEMES + $PICTURES_WALLPAPERS"
+  run mkdir -p "$PICTURES_THEMES" "$PICTURES_WALLPAPERS"
+  if [[ -d "$WALLPAPERS_DIR/themes" ]]; then
+    run rsync -a "$WALLPAPERS_DIR/themes/" "$PICTURES_THEMES/"
+  fi
+  for sub in wallpapers general; do
+    if [[ -d "$WALLPAPERS_DIR/$sub" ]]; then
+      run rsync -a "$WALLPAPERS_DIR/$sub/" "$PICTURES_WALLPAPERS/"
+    fi
+  done
 
-echo "Recommended to Reboot"
+  # Seed last_wallpaper cache so wallpaper-to-theme.sh works first boot.
+  local cache="$HOME/.cache/wallpaper/last_wallpaper"
+  if [[ ! -f "$cache" ]]; then
+    local first
+    first=$(find "$PICTURES_WALLPAPERS" "$PICTURES_THEMES" -maxdepth 2 -type f \
+      \( -iname '*.jpg' -o -iname '*.jpeg' -o -iname '*.png' -o -iname '*.webp' \) 2>/dev/null | sort | head -n 1 || true)
+    if [[ -n "${first:-}" ]]; then
+      log "seeding last_wallpaper -> $first"
+      if [[ "$DRY_RUN" -eq 0 ]]; then
+        mkdir -p "$(dirname "$cache")"
+        printf '%s\n' "$first" > "$cache"
+      else
+        printf '[dry-run] write %s\n' "$cache"
+      fi
+    fi
+  fi
+}
 
-read -r -p "Do you want to reboot now (Y/n)" option
+install_packages() {
+  log "== packages =="
+  need_cmd sudo
+  # Native sudo prompt. No password variables anywhere in this script.
+  run sudo -v
 
-if [[ "$option" == "n" ]]; then
-  exit 0
-fi
+  local aur=""
+  if command -v paru >/dev/null 2>&1; then aur="paru";
+  elif command -v yay >/dev/null 2>&1; then aur="yay";
+  else warn "no AUR helper (paru/yay). AUR packages will be skipped."; fi
 
-sudo systemctl reboot
+  # Matches autostart.lua + quickshell needs. --needed makes re-runs cheap.
+  local pacman_pkgs=(
+    hyprland hyprlock hypridle hyprpolkitagent hyprsunset
+    xdg-desktop-portal-hyprland xdg-desktop-portal-gtk
+    quickshell awww matugen cliphist wl-clipboard
+    waybar swaync ghostty foot tmux neovim cava rofi wlogout
+    networkmanager kdeconnect python-gobject topgrade
+    brave ghostty
+  )
+  log "pacman: ${pacman_pkgs[*]}"
+  run sudo pacman -S --needed --noconfirm "${pacman_pkgs[@]}"
+
+  if [[ -n "$aur" ]]; then
+    log "$aur: networkmanager_dmenu-git"
+    # shellcheck disable=SC2086
+    if [[ "$DRY_RUN" -eq 1 ]]; then
+      printf '[dry-run] %s -S --needed --noconfirm networkmanager_dmenu-git\n' "$aur"
+    else
+      "$aur" -S --needed --noconfirm networkmanager_dmenu-git || warn "AUR install failed, continuing"
+    fi
+  fi
+
+  # Hyprland plugin: only when a compositor is actually running.
+  if command -v hyprpm >/dev/null 2>&1 && pgrep -x Hyprland >/dev/null 2>&1; then
+    log "hyprpm: scrolloverview"
+    if [[ "$DRY_RUN" -eq 1 ]]; then
+      printf '[dry-run] hyprpm add/update/enable scrolloverview\n'
+    else
+      hyprpm add https://github.com/yayuuu/hyprland-scroll-overview.git || warn "hyprpm add failed"
+      hyprpm update || warn "hyprpm update failed"
+      hyprpm enable scrolloverview || warn "hyprpm enable failed"
+    fi
+  else
+    warn "skipping hyprpm (needs running Hyprland + hyprpm)"
+  fi
+}
+
+verify() {
+  log "== verify =="
+  local ok=1
+  if command -v hyprctl >/dev/null 2>&1 && pgrep -x Hyprland >/dev/null 2>&1; then
+    if [[ "$DRY_RUN" -eq 1 ]]; then
+      printf '[dry-run] hyprctl reload\n'
+    elif hyprctl reload >/dev/null 2>&1; then
+      log "hyprctl reload: ok"
+    else
+      warn "hyprctl reload failed"; ok=0
+    fi
+  else
+    warn "hyprctl check skipped (Hyprland not running here — normal on fresh TTY)"
+  fi
+  if command -v quickshell >/dev/null 2>&1; then
+    log "quickshell: $(command -v quickshell)"
+  else
+    warn "quickshell binary missing"; ok=0
+  fi
+  if [[ -x "$LOCAL_BIN/theme-switcher" ]]; then
+    log "theme-switcher: present"
+  else
+    warn "theme-switcher missing in $LOCAL_BIN (untracked upstream — copy it manually if needed)"
+  fi
+  if [[ -d "$PICTURES_THEMES" ]] && [[ -n "$(ls -A "$PICTURES_THEMES" 2>/dev/null)" ]]; then
+    log "Pictures/Themes: seeded"
+  else
+    warn "Pictures/Themes empty"; ok=0
+  fi
+  if [[ "$ok" -eq 1 ]]; then
+    log "verify: PASS"
+  else
+    warn "verify: issues above (non-fatal)"
+  fi
+}
+
+main() {
+  log "My-config setup (safe, idempotent). DRY_RUN=$DRY_RUN"
+  if [[ "$WALLPAPERS_ONLY" -eq 1 ]]; then
+    install_wallpapers
+    verify
+    log "wallpapers-only done."
+    return 0
+  fi
+  if [[ "$ASSUME_YES" -eq 0 && "$DRY_RUN" -eq 0 ]]; then
+    confirm "Proceed with dotfiles setup?" || die "aborted by user"
+  fi
+  install_dotfiles
+  install_wallpapers
+  if [[ "$NO_PACKAGES" -eq 0 ]]; then
+    install_packages
+  else
+    log "skipping packages (--no-packages)"
+  fi
+  verify
+  log "Everything completed. Recommended: reboot."
+  if [[ "$DRY_RUN" -eq 0 ]] && { [[ "$ASSUME_YES" -eq 1 ]] || confirm "Reboot now?"; }; then
+    log "rebooting..."
+    run sudo systemctl reboot
+  else
+    log "reboot skipped (default). Run 'sudo systemctl reboot' when ready."
+  fi
+}
+
+main "$@"
