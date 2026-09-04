@@ -200,3 +200,9 @@ walker/
 foot/colors.ini
 kitty/
 alacritty/
+
+# Wallpapers — large binaries live in ~/wallpapers repo + ~/Pictures/*, not in My-config
+# Palettes (hypr/themes/*/palette, quickshell/tokens/palettes/*) stay tracked
+wallpapers/
+themes/
+hyprlock/wallpapers/
