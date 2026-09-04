@@ -1,0 +1,1942 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+THEMES_DIR="$HOME/.config/hypr/themes"
+CACHE_DIR="$HOME/.cache/wallpaper"
+CURRENT_THEME_FILE="$CACHE_DIR/current_theme"
+LAST_WALLPAPER="$CACHE_DIR/last_wallpaper"
+
+mkdir -p "$CACHE_DIR"
+
+# ---- discover themes ----
+mapfile -t THEMES < <(find "$THEMES_DIR" -mindepth 1 -maxdepth 1 -type d -exec basename {} \; | sort)
+if [[ ${#THEMES[@]} -eq 0 ]]; then
+  notify-send "Theme Switcher" "No themes found in $THEMES_DIR"
+  exit 1
+fi
+
+# ---- get current theme ----
+CURRENT=""
+[[ -f "$CURRENT_THEME_FILE" ]] && CURRENT=$(<"$CURRENT_THEME_FILE")
+
+# ---- accept theme name from argument (GUI from Quickshell) ----
+SELECTED="${1:-}"
+if [[ -z "$SELECTED" ]]; then
+  notify-send "Theme Switcher" "Usage: theme-switcher <theme-name>\nUse the bar → Theme button to pick interactively."
+  exit 1
+fi
+
+# Validate theme exists
+VALID=false
+for t in "${THEMES[@]}"; do
+  if [[ "$t" == "$SELECTED" ]]; then
+    VALID=true
+    break
+  fi
+done
+if ! $VALID; then
+  notify-send "Theme Switcher" "Theme '$SELECTED' not found in $THEMES_DIR"
+  exit 1
+fi
+
+THEME_DIR="$THEMES_DIR/$SELECTED"
+PALETTE="$THEME_DIR/palette"
+WP_DIR="$HOME/Pictures/Themes/$SELECTED"
+
+# ---- Dynamic: regenerate palette from current wallpaper ----
+if [[ "$SELECTED" == "Dynamic" ]]; then
+  mkdir -p "$WP_DIR"
+  LAST_WALL=$(cat "$LAST_WALLPAPER" 2>/dev/null || echo "")
+  if [[ -n "$LAST_WALL" && -f "$LAST_WALL" ]]; then
+    matugen image "$LAST_WALL" --json hex --source-color-index 0 2>/dev/null | python3 -c "
+import json, sys
+data = json.load(sys.stdin)
+colors = data.get('colors', {})
+def get_color(name, fallback):
+    entry = colors.get(name)
+    if entry and isinstance(entry, dict):
+        variant = entry.get('default') or entry.get('dark') or {}
+        return variant.get('color', fallback)
+    return fallback
+
+header = '# M3 Color Palette: Dynamic (auto-generated from wallpaper)'
+print(header)
+
+core_tones = {
+    'primary': '#a7c080', 'on_primary': '#2d353b', 'primary_container': '#3d484d',
+    'on_primary_container': '#a7c080', 'secondary': '#d3c6aa', 'on_secondary': '#2d353b',
+    'tertiary': '#7fbbb3', 'surface': '#2d353b', 'on_surface': '#d3c6aa',
+    'error': '#e67e80', 'outline': '#5f6c71',
+    'on_tertiary': '#2d353b', 'on_error': '#2d353b',
+    'surface_variant': '#3d484d',
+}
+for name, fallback in core_tones.items():
+    print(f'{name}={get_color(name, fallback)}')
+
+extended = [
+    'primary_fixed', 'primary_fixed_dim', 'on_primary_fixed', 'on_primary_fixed_variant',
+    'secondary_fixed', 'secondary_fixed_dim', 'on_secondary_fixed', 'on_secondary_fixed_variant',
+    'tertiary_fixed', 'tertiary_fixed_dim', 'on_tertiary_fixed', 'on_tertiary_fixed_variant',
+    'secondary_container', 'on_secondary_container',
+    'tertiary_container', 'on_tertiary_container',
+    'error_container', 'on_error_container',
+    'surface_dim', 'surface_bright', 'surface_container_lowest',
+    'surface_container_low', 'surface_container', 'surface_container_high', 'surface_container_highest',
+    'on_surface_variant', 'inverse_surface', 'inverse_on_surface',
+    'inverse_primary', 'outline_variant', 'scrim', 'shadow', 'source_color',
+]
+for tone in extended:
+    print(f'{tone}={get_color(tone, \"#000000\")}')
+" > "$PALETTE"
+  fi
+fi
+
+# ---- validate ----
+if [[ ! -f "$PALETTE" ]]; then
+  notify-send "Theme Switcher" "No palette found for $SELECTED"
+  exit 1
+fi
+if [[ ! -d "$WP_DIR" ]]; then
+  notify-send "Theme Switcher" "No wallpaper directory for $SELECTED"
+  exit 1
+fi
+
+# ---- source palette ----
+declare -A COLORS
+while IFS='=' read -r key value; do
+  [[ -z "$key" || "$key" == \#* ]] && continue
+  COLORS["$key"]="$value"
+done <"$PALETTE"
+
+hex() { echo "${COLORS[$1]}"; }
+hex_stripped() { echo "${COLORS[$1]#\#}"; }
+rgb() {
+  local h="${1#\#}"
+  printf "%d,%d,%d" 0x${h:0:2} 0x${h:2:2} 0x${h:4:2}
+}
+
+# ==============================================================
+# Generate output files
+# ==============================================================
+
+# 1. Hyprland colors.conf
+{
+  echo "# Theme: $SELECTED"
+  for key in "${!COLORS[@]}"; do echo "\$$key = rgba($(hex_stripped "$key")ff)"; done
+} >"$HOME/.config/hypr/colors.conf"
+
+# 2. Waybar / SwayNC / Wlogout colors.css
+{
+  echo "/* Theme: $SELECTED */"
+  for key in "${!COLORS[@]}"; do echo "@define-color $key $(hex "$key");"; done
+} >"$HOME/.config/waybar/colors.css"
+cp "$HOME/.config/waybar/colors.css" "$HOME/.config/swaync/colors.css"
+cp "$HOME/.config/waybar/colors.css" "$HOME/.config/wlogout/colors.css"
+
+# 3. Rofi colors.rasi — all palette keys, underscores → hyphens
+{
+  echo "* {"
+  for key in "${!COLORS[@]}"; do
+    echo "    ${key//_/-}: $(hex "$key");"
+  done
+  echo "}"
+} >"$HOME/.config/rofi/colors.rasi"
+
+# 4. GTK3 & GTK4 — theme colors
+GTK_COLORS=$(
+  cat <<COLORS_EOF
+@define-color accent_color $(hex primary);
+@define-color accent_fg_color $(hex on_primary);
+@define-color accent_bg_color $(hex primary);
+@define-color destructive_color $(hex error);
+@define-color destructive_fg_color $(hex on_error);
+@define-color destructive_bg_color $(hex error);
+@define-color success_color $(hex primary);
+@define-color success_fg_color $(hex on_primary);
+@define-color success_bg_color $(hex primary);
+@define-color warning_color $(hex tertiary);
+@define-color warning_fg_color $(hex on_tertiary);
+@define-color warning_bg_color $(hex tertiary);
+@define-color error_color $(hex error);
+@define-color error_fg_color $(hex on_error);
+@define-color error_bg_color $(hex error);
+@define-color window_bg_color $(hex surface_container_lowest);
+@define-color window_fg_color $(hex on_surface);
+@define-color view_bg_color $(hex surface);
+@define-color view_fg_color $(hex on_surface);
+@define-color headerbar_bg_color $(hex surface_container);
+@define-color headerbar_fg_color $(hex on_surface);
+@define-color headerbar_backdrop_color $(hex surface_dim);
+@define-color card_bg_color $(hex surface_container_high);
+@define-color card_fg_color $(hex on_surface);
+@define-color popover_bg_color $(hex surface_container_high);
+@define-color popover_fg_color $(hex on_surface);
+@define-color sidebar_bg_color $(hex surface_dim);
+@define-color sidebar_fg_color $(hex on_surface);
+@define-color sidebar_backdrop_color $(hex surface_dim);
+@define-color dialog_bg_color $(hex surface_container_high);
+@define-color dialog_fg_color $(hex on_surface);
+@define-color titlebar_bg_color $(hex surface_container);
+@define-color titlebar_fg_color $(hex on_surface);
+@define-color titlebar_backdrop_color $(hex surface_dim);
+@define-color tooltip_bg_color $(hex surface_container_highest);
+@define-color tooltip_fg_color $(hex on_surface);
+@define-color menu_bg_color $(hex surface_container);
+@define-color menu_fg_color $(hex on_surface);
+@define-color scrollbar_bg_color $(hex surface);
+@define-color scrollbar_slider_color $(hex primary);
+@define-color theme_bg_color $(hex surface_dim);
+@define-color theme_fg_color $(hex on_surface);
+@define-color theme_base_color $(hex surface);
+@define-color theme_text_color $(hex on_surface);
+@define-color theme_selected_bg_color $(hex primary);
+@define-color theme_selected_fg_color $(hex on_primary);
+@define-color theme_unfocused_bg_color $(hex surface_dim);
+@define-color theme_unfocused_fg_color $(hex on_surface);
+@define-color theme_unfocused_base_color $(hex surface);
+@define-color theme_unfocused_selected_bg_color $(hex primary);
+@define-color theme_unfocused_selected_fg_color $(hex on_primary);
+COLORS_EOF
+)
+
+printf '%s\n' "$GTK_COLORS" >"$HOME/.config/gtk-3.0/gtk.css"
+cp "$HOME/.config/gtk-3.0/gtk.css" "$HOME/.config/gtk-3.0/colors.css"
+cp "$HOME/.config/gtk-3.0/gtk.css" "$HOME/.config/gtk-4.0/gtk.css"
+cp "$HOME/.config/gtk-3.0/gtk.css" "$HOME/.config/gtk-4.0/gtk-dark.css"
+cp "$HOME/.config/gtk-3.0/gtk.css" "$HOME/.config/gtk-4.0/colors.css"
+
+# 5. Custom theme for GTK3 live reload and GTK4 portal support (adw-gtk3-dank)
+CUSTOM_THEME_DIR="$HOME/.local/share/themes/adw-gtk3-dank"
+mkdir -p "$CUSTOM_THEME_DIR/gtk-3.0/assets"
+cp -r /usr/share/themes/adw-gtk3-dark/gtk-3.0/assets/* "$CUSTOM_THEME_DIR/gtk-3.0/assets/"
+cp /usr/share/themes/adw-gtk3-dark/gtk-3.0/gtk.css "$CUSTOM_THEME_DIR/gtk-3.0/gtk.css"
+cp /usr/share/themes/adw-gtk3-dark/gtk-3.0/gtk-dark.css "$CUSTOM_THEME_DIR/gtk-3.0/gtk-dark.css"
+cp /usr/share/themes/adw-gtk3-dark/gtk-3.0/thumbnail.png "$CUSTOM_THEME_DIR/gtk-3.0/" 2>/dev/null || true
+
+# --- GTK4 / libadwaita: copy CSS so file chooser dialogs and other GTK4 portal windows pick up our colors ---
+mkdir -p "$CUSTOM_THEME_DIR/gtk-4.0"
+for f in gtk.css gtk-dark.css libadwaita.css libadwaita-tweaks.css; do
+  cp "/usr/share/themes/adw-gtk3-dark/gtk-4.0/$f" "$CUSTOM_THEME_DIR/gtk-4.0/$f"
+done
+
+cat >"$CUSTOM_THEME_DIR/index.theme" <<EOF
+[X-GNOME-Metatheme]
+Name=adw-gtk3-dank
+Type=X-GNOME-Metatheme
+Comment=adw-gtk3-dank
+Encoding=UTF-8
+GtkTheme=adw-gtk3-dank
+EOF
+
+# Append our colors — CSS cascade means last @define-color wins, no need to sed-patch
+for css in \
+  "$CUSTOM_THEME_DIR/gtk-3.0/gtk.css" \
+  "$CUSTOM_THEME_DIR/gtk-3.0/gtk-dark.css" \
+  "$CUSTOM_THEME_DIR/gtk-4.0/gtk.css" \
+  "$CUSTOM_THEME_DIR/gtk-4.0/gtk-dark.css"; do
+  printf '\n%s\n' "$GTK_COLORS" >> "$css"
+done
+
+# 6. Ghostty — full terminal palette
+{
+  echo "# Theme: $SELECTED — Generated by theme-switcher"
+  echo ""
+  echo "background = 000000"
+  echo "foreground = $(hex on_surface)"
+  echo "cursor-color = $(hex on_surface)"
+  echo "cursor-text = $(hex surface)"
+  echo "selection-background = $(hex secondary_fixed_dim)"
+  echo "selection-foreground = $(hex on_secondary)"
+  echo ""
+  echo "# ANSI 16-color palette mapped to M3 theme colors"
+  echo "palette = 0=$(hex surface_container_lowest)"
+  echo "palette = 1=$(hex error)"
+  echo "palette = 2=$(hex tertiary)"
+  echo "palette = 3=$(hex primary_fixed)"
+  echo "palette = 4=$(hex primary)"
+  echo "palette = 5=$(hex secondary)"
+  echo "palette = 6=$(hex tertiary_fixed_dim)"
+  echo "palette = 7=$(hex on_surface)"
+  echo "palette = 8=$(hex surface_container)"
+  echo "palette = 9=$(hex error_container)"
+  echo "palette = 10=$(hex tertiary_container)"
+  echo "palette = 11=$(hex primary_fixed_dim)"
+  echo "palette = 12=$(hex inverse_primary)"
+  echo "palette = 13=$(hex secondary_fixed)"
+  echo "palette = 14=$(hex on_tertiary_container)"
+  echo "palette = 15=$(hex surface_bright)"
+} >"$HOME/.config/ghostty/themes/Matugen"
+
+# 7. Neovim
+mkdir -p "$HOME/.config/nvim/lua"
+{
+  echo "-- Generated by theme-switcher - Theme: $SELECTED"
+  echo "return {"
+  for key in "${!COLORS[@]}"; do
+    printf "  ['%s'] = '#%s',\n" "$key" "$(hex_stripped "$key")"
+  done
+  echo "}"
+} >"$HOME/.config/nvim/lua/theme-colors.lua"
+
+# (Yazi — no custom theme, uses built-in default)
+
+# 8. Zsh — theme color variables
+mkdir -p "$HOME/.config/zsh"
+{
+  echo "# Theme: $SELECTED — Generated by theme-switcher"
+  for key in "${!COLORS[@]}"; do
+    printf "export COLOR_%s='%s'\n" "${key^^}" "$(hex "$key")"
+  done
+} >"$HOME/.config/zsh/theme-colors.zsh"
+
+# Append LS_COLORS using theme colors (24-bit ANSI)
+{
+  echo ""
+  echo "# LS_COLORS from theme colors"
+  echo "LS_COLORS=\"\""
+
+  # Helper: hex → 38;2;R;G;B
+  _a() { rgb "$1" | tr ',' ';'; }
+
+  # Core types
+  echo "LS_COLORS=\"\${LS_COLORS}di=38;2;$(_a "$(hex primary)"):\""     # directory  = primary
+  echo "LS_COLORS=\"\${LS_COLORS}ln=38;2;$(_a "$(hex tertiary)"):\""    # symlink    = tertiary
+  echo "LS_COLORS=\"\${LS_COLORS}ex=38;2;$(_a "$(hex secondary)"):\""   # executable = secondary
+  echo "LS_COLORS=\"\${LS_COLORS}or=38;2;$(_a "$(hex error)"):\""       # orphan     = error
+  echo "LS_COLORS=\"\${LS_COLORS}rs=0:\""
+  echo "LS_COLORS=\"\${LS_COLORS}fi=0:\""
+
+  # Archives = secondary
+  for ext in tar tgz gz bz2 xz zip 7z rar zst; do
+    echo "LS_COLORS=\"\${LS_COLORS}*.${ext}=38;2;$(_a "$(hex secondary)"):\""
+  done
+
+  # Images = tertiary
+  for ext in png jpg jpeg webp gif bmp avif svg; do
+    echo "LS_COLORS=\"\${LS_COLORS}*.${ext}=38;2;$(_a "$(hex tertiary)"):\""
+  done
+
+  # Media = tertiary
+  for ext in mp3 mp4 flac ogg mkv webm avi mov wav; do
+    echo "LS_COLORS=\"\${LS_COLORS}*.${ext}=38;2;$(_a "$(hex tertiary)"):\""
+  done
+
+  # Documents = primary
+  for ext in pdf doc docx odt ods xls xlsx ppt pptx txt; do
+    echo "LS_COLORS=\"\${LS_COLORS}*.${ext}=38;2;$(_a "$(hex primary)"):\""
+  done
+
+  # Code = secondary
+  for ext in py js ts rs go c cpp h java rb sh bash zsh lua; do
+    echo "LS_COLORS=\"\${LS_COLORS}*.${ext}=38;2;$(_a "$(hex secondary)"):\""
+  done
+
+  echo "export LS_COLORS"
+} >> "$HOME/.config/zsh/theme-colors.zsh"
+
+# 9. Starship — clean modern prompt with theme colors
+{
+  echo "# Starship config — Generated by theme-switcher for theme: $SELECTED"
+  echo ""
+  cat <<STARSHIP
+format = """\
+\$directory\
+\$git_branch\
+\$git_status\
+\$fill\
+\$cmd_duration\
+\$line_break\
+\$character\
+"""
+
+[directory]
+truncation_length = 3
+truncate_to_repo = false
+format = "[ \$path](bold fg:$(hex primary))"
+
+[git_branch]
+format = "[  \$branch](fg:$(hex on_surface_variant))"
+truncation_length = 10
+
+[git_status]
+conflicted = ""
+untracked = ""
+stashed = ""
+modified = ""
+staged = ""
+renamed = ""
+deleted = ""
+ahead = ""
+behind = ""
+diverged = ""
+format = "[*](fg:$(hex error))"
+
+[character]
+success_symbol = "[❯](bold fg:$(hex primary))"
+error_symbol = "[✗](bold fg:$(hex error))"
+vimcmd_symbol = "[❮](bold fg:$(hex secondary))"
+
+[cmd_duration]
+min_time = 2000
+format = "[⏱ \$duration](fg:$(hex tertiary))"
+
+[fill]
+symbol = " "
+STARSHIP
+} > "$HOME/.config/starship.toml"
+
+: <<'__SKIP_QT__'
+# 10. KDE / Qt color scheme
+KDE_SCHEME_NAME="Matugen-$SELECTED"
+{
+  sec() {
+    local bg="$1" bgalt="$2"
+    cat <<SEC
+BackgroundAlternate=$(rgb "$bgalt")
+BackgroundNormal=$(rgb "$bg")
+DecorationFocus=$(rgb "$(hex primary)")
+DecorationHover=$(rgb "$(hex primary)")
+ForegroundActive=$(rgb "$(hex primary)")
+ForegroundInactive=$(rgb "$(hex on_surface_variant)")
+ForegroundLink=$(rgb "$(hex primary)")
+ForegroundNegative=$(rgb "$(hex error)")
+ForegroundNeutral=$(rgb "$(hex tertiary)")
+ForegroundNormal=$(rgb "$(hex on_surface)")
+ForegroundPositive=$(rgb "$(hex primary)")
+ForegroundVisited=$(rgb "$(hex secondary)")
+SEC
+  }
+  echo "# Generated by theme-switcher - Theme: $SELECTED"
+  echo ""
+  echo "[ColorEffects:Disabled]"
+  echo "Color=56,56,56"
+  echo "ColorAmount=0"
+  echo "ColorEffect=0"
+  echo "ContrastAmount=0.65"
+  echo "ContrastEffect=1"
+  echo "IntensityAmount=0.1"
+  echo "IntensityEffect=2"
+  echo ""
+  echo "[ColorEffects:Inactive]"
+  echo "ChangeSelectionColor=true"
+  echo "Color=112,111,110"
+  echo "ColorAmount=0.025"
+  echo "ColorEffect=2"
+  echo "ContrastAmount=0.1"
+  echo "ContrastEffect=2"
+  echo "Enable=false"
+  echo "IntensityAmount=0"
+  echo "IntensityEffect=0"
+  echo ""
+  echo "[Colors:Button]"
+  sec "$(hex surface_container)" "$(hex surface_container_high)"
+  echo ""
+  echo "[Colors:Complementary]"
+  sec "$(hex surface_container_low)" "$(hex surface_container)"
+  echo ""
+  echo "[Colors:Header]"
+  sec "$(hex surface_container)" "$(hex surface_dim)"
+  echo ""
+  echo "[Colors:Selection]"
+  echo "BackgroundAlternate=$(rgb "$(hex primary_container)")"
+  echo "BackgroundNormal=$(rgb "$(hex primary)")"
+  echo "DecorationFocus=$(rgb "$(hex primary)")"
+  echo "DecorationHover=$(rgb "$(hex primary)")"
+  echo "ForegroundActive=$(rgb "$(hex on_primary)")"
+  echo "ForegroundInactive=$(rgb "$(hex on_surface_variant)")"
+  echo "ForegroundLink=$(rgb "$(hex primary_fixed)")"
+  echo "ForegroundNegative=$(rgb "$(hex on_error)")"
+  echo "ForegroundNeutral=$(rgb "$(hex on_tertiary)")"
+  echo "ForegroundNormal=$(rgb "$(hex on_primary)")"
+  echo "ForegroundPositive=$(rgb "$(hex on_primary_fixed)")"
+  echo "ForegroundVisited=$(rgb "$(hex secondary_fixed)")"
+  echo ""
+  echo "[Colors:Tooltip]"
+  sec "$(hex surface_container_highest)" "$(hex surface_container_high)"
+  echo ""
+  echo "[Colors:View]"
+  sec "$(hex surface)" "$(hex surface_container_low)"
+  echo ""
+  echo "[Colors:Window]"
+  sec "$(hex surface_dim)" "$(hex surface_container)"
+  echo ""
+  echo "[General]"
+  echo "ColorScheme=$KDE_SCHEME_NAME"
+  echo "Name=$KDE_SCHEME_NAME"
+  echo "shadeSortColumn=true"
+  echo ""
+  echo "[KDE]"
+  echo "contrast=4"
+  echo ""
+  echo "[WM]"
+  echo "activeBackground=$(rgb "$(hex surface_container)")"
+  echo "activeBlend=$(rgb "$(hex primary)")"
+  echo "activeForeground=$(rgb "$(hex on_surface)")"
+  echo "inactiveBackground=$(rgb "$(hex surface_dim)")"
+  echo "inactiveBlend=$(rgb "$(hex on_surface_variant)")"
+  echo "inactiveForeground=$(rgb "$(hex on_surface_variant)")"
+} >"$HOME/.local/share/color-schemes/$KDE_SCHEME_NAME.colors"
+
+# Write color sections directly to kdeglobals (works on Hyprland without Plasma)
+# This ensures Dolphin and other KDE/Qt apps pick up the theme colors immediately.
+python3 -c "
+import configparser, os, sys
+
+scheme_path = os.path.expanduser('$HOME/.local/share/color-schemes/$KDE_SCHEME_NAME.colors')
+globals_path = os.path.expanduser('$HOME/.config/kdeglobals')
+
+# Read the fresh KDE scheme
+scheme = configparser.ConfigParser()
+scheme.read(scheme_path)
+
+# Read existing kdeglobals (preserve non-color sections)
+globals = configparser.ConfigParser()
+globals.read(globals_path)
+
+# Overwrite only color sections from the scheme
+color_sections = ['ColorEffects:Disabled', 'ColorEffects:Inactive',
+                  'Colors:Button', 'Colors:Complementary', 'Colors:Header',
+                  'Colors:Selection', 'Colors:Tooltip', 'Colors:View',
+                  'Colors:Window']
+
+for section in color_sections:
+    if scheme.has_section(section):
+        if globals.has_section(section):
+            globals.remove_section(section)
+        globals.add_section(section)
+        for key, val in scheme.items(section):
+            globals.set(section, key, val)
+
+# Update General section with scheme name and accent colors
+if globals.has_section('General'):
+    globals.set('General', 'ColorScheme', '$KDE_SCHEME_NAME')
+    globals.set('General', 'AccentColor', '$(rgb "$(hex primary)")')
+    globals.set('General', 'LastUsedCustomAccentColor', '$(rgb "$(hex primary)")')
+
+# Write back
+with open(globals_path, 'w') as f:
+    globals.write(f)
+
+print(f'kdeglobals: updated with {scheme_path}')
+"
+
+# Clear per-app ColorScheme overrides so apps follow system theme
+for rc in okularrc okularpartrc; do
+  f="$HOME/.config/$rc"
+  [[ -f "$f" ]] && sed -i '/^ColorScheme=/d' "$f"
+done
+
+# 11. Qt6ct color scheme (for QT_QPA_PLATFORMTHEME=qt6ct)
+qt6ct_dir="$HOME/.config/qt6ct/colors"
+mkdir -p "$qt6ct_dir"
+{
+  echo "[ColorScheme]"
+  echo "active_colors=$(printf '#ff%s, #ff%s, #ff%s, #ff%s, #ff%s, #ff%s, #ff%s, #ff%s, #ff%s, #ff%s, #ff%s, #ff%s, #ff%s, #ff%s, #ff%s, #ff%s, #ff%s, #ff%s, #ff%s, #ff%s, #ff%s' \
+    "$(hex_stripped surface)" "$(hex_stripped on_surface)" "$(hex_stripped surface_container)" "$(hex_stripped surface_bright)" \
+    "$(hex_stripped surface_container_lowest)" "$(hex_stripped outline)" "$(hex_stripped on_surface)" "$(hex_stripped on_surface)" \
+    "$(hex_stripped on_surface)" "$(hex_stripped surface)" "$(hex_stripped surface_container_low)" "$(hex_stripped surface_container_highest)" \
+    "$(hex_stripped on_surface)" "$(hex_stripped primary)" "$(hex_stripped on_primary)" "$(hex_stripped primary)" \
+    "$(hex_stripped secondary)" "$(hex_stripped on_surface_variant)" "$(hex_stripped scrim)" "$(hex_stripped on_surface_variant)" \
+    "$(hex_stripped primary)")"
+  echo "disabled_colors=$(printf '#ff%s, #ff%s, #ff%s, #ff%s, #ff%s, #ff%s, #ff%s, #ff%s, #ff%s, #ff%s, #ff%s, #ff%s, #ff%s, #ff%s, #ff%s, #ff%s, #ff%s, #ff%s, #ff%s, #ff%s, #ff%s' \
+    "$(hex_stripped surface)" "$(hex_stripped outline)" "$(hex_stripped surface_container)" "$(hex_stripped surface_bright)" \
+    "$(hex_stripped surface_container_lowest)" "$(hex_stripped outline)" "$(hex_stripped outline)" "$(hex_stripped outline)" \
+    "$(hex_stripped outline)" "$(hex_stripped surface)" "$(hex_stripped surface_container_low)" "$(hex_stripped surface_container_highest)" \
+    "$(hex_stripped outline)" "$(hex_stripped surface_container_high)" "$(hex_stripped surface)" "$(hex_stripped outline)" \
+    "$(hex_stripped outline)" "$(hex_stripped outline)" "$(hex_stripped scrim)" "$(hex_stripped outline)" \
+    "$(hex_stripped surface_container_high)")"
+  echo "inactive_colors=$(printf '#ff%s, #ff%s, #ff%s, #ff%s, #ff%s, #ff%s, #ff%s, #ff%s, #ff%s, #ff%s, #ff%s, #ff%s, #ff%s, #ff%s, #ff%s, #ff%s, #ff%s, #ff%s, #ff%s, #ff%s, #ff%s' \
+    "$(hex_stripped surface)" "$(hex_stripped on_surface)" "$(hex_stripped surface_container)" "$(hex_stripped surface_bright)" \
+    "$(hex_stripped surface_container_lowest)" "$(hex_stripped outline)" "$(hex_stripped on_surface)" "$(hex_stripped on_surface)" \
+    "$(hex_stripped on_surface)" "$(hex_stripped surface)" "$(hex_stripped surface_container_low)" "$(hex_stripped surface_container_highest)" \
+    "$(hex_stripped on_surface)" "$(hex_stripped primary)" "$(hex_stripped on_primary)" "$(hex_stripped primary)" \
+    "$(hex_stripped secondary)" "$(hex_stripped on_surface_variant)" "$(hex_stripped scrim)" "$(hex_stripped on_surface_variant)" \
+    "$(hex_stripped primary)")"
+} >"$qt6ct_dir/$SELECTED.conf"
+# Update qt6ct config to use this scheme
+QT6CT_CONF="$HOME/.config/qt6ct/qt6ct.conf"
+python3 -c "
+import configparser, os
+
+conf_path = os.path.expanduser('$QT6CT_CONF')
+config = configparser.ConfigParser()
+config.read(conf_path)
+
+if not config.has_section('Appearance'):
+    config.add_section('Appearance')
+
+config.set('Appearance', 'style', 'Fusion')
+config.set('Appearance', 'custom_palette', 'true')
+config.set('Appearance', 'color_scheme_path', '$qt6ct_dir/$SELECTED.conf')
+
+# Preserve existing icon_theme if set, otherwise default to Papirus-Dark
+if not config.has_option('Appearance', 'icon_theme'):
+    config.set('Appearance', 'icon_theme', 'Papirus-Dark')
+
+with open(conf_path, 'w') as f:
+    config.write(f)
+
+print(f'qt6ct.conf: appearance section updated (style=Fusion, scheme=$SELECTED)')
+"
+__SKIP_QT__
+
+# 12. Hyprtoolkit palette (for hyprpolkitagent and other hyprtoolkit apps)
+HYPRTOOLKIT_CONF="$HOME/.config/hypr/hyprtoolkit.conf"
+mkdir -p "$(dirname "$HYPRTOOLKIT_CONF")"
+{
+  echo "# Generated by theme-switcher - Theme: $SELECTED"
+  echo "# hyprtoolkit palette — controls hyprpolkitagent and other hyprtoolkit apps"
+  echo ""
+  echo "# Colors — FLAT keys (NOT under general{ }). ConfigManager reads them as-is."
+  echo "background = 0xFF$(hex_stripped surface_container_lowest)"
+  echo "base = 0xFF$(hex_stripped surface)"
+  echo "text = 0xFF$(hex_stripped on_surface)"
+  echo "alternate_base = 0xFF$(hex_stripped surface_container)"
+  echo "bright_text = 0xFF$(hex_stripped on_surface)"
+  echo "accent = 0xFF$(hex_stripped primary)"
+  echo "accent_secondary = 0xFF$(hex_stripped secondary)"
+  echo ""
+  echo "# Rounding"
+  echo "rounding_large = 10"
+  echo "rounding_small = 5"
+  echo ""
+  echo "# Font settings (inherited from system)"
+  echo "# icon_theme, font_family, font_size can be uncommented and set here"
+} >"$HYPRTOOLKIT_CONF"
+
+# 13. Quickshell / Ricelin — M3 color palette for the pill bar
+RICELIN_DIR="$HOME/.local/state/ricelin"
+mkdir -p "$RICELIN_DIR"
+python3 -c "
+import json
+palette = {}
+with open('$PALETTE') as f:
+    for line in f:
+        line = line.strip()
+        if not line or line.startswith('#') or '=' not in line:
+            continue
+        k, v = line.split('=', 1)
+        palette[k.strip()] = v.strip()
+with open('$RICELIN_DIR/theme-colors.json', 'w') as f:
+    json.dump(palette, f, indent=2)
+"
+
+# 14. VSCodium — use workbench.colorCustomizations for instant hot-reload
+# VS Code hot-reloads settings.json changes immediately (no restart needed)
+VSCODE_SETTINGS="$HOME/.config/VSCodium/User/settings.json"
+VSCODE_PALETTE="$PALETTE"
+python3 -c "
+import json, os, sys
+
+# Read palette file (passed as argument)
+palette_file = sys.argv[1] if len(sys.argv) > 1 else '$PALETTE'
+palette = {}
+with open(palette_file) as f:
+    for line in f:
+        line = line.strip()
+        if not line or line.startswith('#'):
+            continue
+        if '=' in line:
+            k, v = line.split('=', 1)
+            palette[k.strip()] = v.strip()
+
+def hex_stripped(key):
+    return palette.get(key, '#000000').lstrip('#')
+
+# Read current settings
+settings_path = os.path.expanduser('$VSCODE_SETTINGS')
+settings = {}
+if os.path.exists(settings_path):
+    try:
+        with open(settings_path) as f:
+            settings = json.load(f)
+    except:
+        pass
+
+colors = {}
+
+# Editor — use surface_container_lowest for deeper bg to contrast against sidebar
+colors['editor.background'] = '#' + hex_stripped('surface_container_lowest')
+colors['editor.foreground'] = '#' + hex_stripped('on_surface')
+colors['editorLineNumber.foreground'] = '#' + hex_stripped('outline')
+colors['editorLineNumber.activeForeground'] = '#' + hex_stripped('primary')
+colors['editorCursor.foreground'] = '#' + hex_stripped('primary')
+colors['editor.selectionBackground'] = '#' + hex_stripped('primary_container') + '4D'
+colors['editor.selectionHighlightBackground'] = '#' + hex_stripped('primary_container') + '27'
+colors['editor.lineHighlightBackground'] = '#' + hex_stripped('surface_container') + '80'
+colors['editorLink.activeForeground'] = '#' + hex_stripped('primary')
+colors['editorWhitespace.foreground'] = '#' + hex_stripped('outline')
+colors['editorIndentGuide.background'] = '#' + hex_stripped('surface_container_high')
+colors['editorIndentGuide.activeBackground'] = '#' + hex_stripped('primary')
+colors['editorRuler.foreground'] = '#' + hex_stripped('outline')
+colors['editorCodeLens.foreground'] = '#' + hex_stripped('on_surface_variant')
+colors['editorBracketMatch.background'] = '#' + hex_stripped('surface_container_high')
+colors['editorBracketMatch.border'] = '#' + hex_stripped('primary')
+colors['editorOverviewRuler.border'] = '#' + hex_stripped('surface_container')
+colors['editor.findMatchBackground'] = '#' + hex_stripped('primary') + '4D'
+colors['editor.findMatchHighlightBackground'] = '#' + hex_stripped('primary_fixed_dim') + '33'
+colors['editor.wordHighlightBackground'] = '#' + hex_stripped('tertiary_container') + '40'
+colors['editor.wordHighlightStrongBackground'] = '#' + hex_stripped('primary_container') + '40'
+
+# Sidebar
+colors['sideBar.background'] = '#' + hex_stripped('surface_dim')
+colors['sideBar.foreground'] = '#' + hex_stripped('on_surface')
+colors['sideBarTitle.foreground'] = '#' + hex_stripped('primary')
+colors['sideBarSectionHeader.background'] = '#' + hex_stripped('surface_container')
+colors['sideBarSectionHeader.foreground'] = '#' + hex_stripped('on_surface')
+
+# Activity Bar
+colors['activityBar.background'] = '#' + hex_stripped('surface_container_lowest')
+colors['activityBar.foreground'] = '#' + hex_stripped('on_surface')
+colors['activityBar.activeBorder'] = '#' + hex_stripped('primary')
+colors['activityBar.inactiveForeground'] = '#' + hex_stripped('on_surface_variant')
+colors['activityBarBadge.background'] = '#' + hex_stripped('primary')
+colors['activityBarBadge.foreground'] = '#' + hex_stripped('on_primary')
+
+# Title Bar
+colors['titleBar.activeBackground'] = '#' + hex_stripped('surface_container')
+colors['titleBar.activeForeground'] = '#' + hex_stripped('on_surface')
+colors['titleBar.inactiveBackground'] = '#' + hex_stripped('surface_dim')
+colors['titleBar.inactiveForeground'] = '#' + hex_stripped('on_surface_variant')
+
+# Status Bar
+colors['statusBar.background'] = '#' + hex_stripped('surface_container')
+colors['statusBar.foreground'] = '#' + hex_stripped('on_surface')
+colors['statusBarItem.remoteBackground'] = '#' + hex_stripped('primary')
+colors['statusBarItem.remoteForeground'] = '#' + hex_stripped('on_primary')
+colors['statusBar.debuggingBackground'] = '#' + hex_stripped('error')
+colors['statusBar.debuggingForeground'] = '#' + hex_stripped('on_error')
+
+# Panel
+colors['panel.background'] = '#' + hex_stripped('surface_dim')
+colors['panel.border'] = '#' + hex_stripped('surface_container_high')
+colors['panelTitle.activeBorder'] = '#' + hex_stripped('primary')
+colors['panelTitle.activeForeground'] = '#' + hex_stripped('primary')
+colors['panelTitle.inactiveForeground'] = '#' + hex_stripped('on_surface_variant')
+
+# Terminal (16 ANSI)
+colors['terminal.background'] = '#' + hex_stripped('surface_dim')
+colors['terminal.foreground'] = '#' + hex_stripped('on_surface')
+colors['terminal.ansiBlack'] = '#' + hex_stripped('surface_container_lowest')
+colors['terminal.ansiRed'] = '#' + hex_stripped('error')
+colors['terminal.ansiGreen'] = '#' + hex_stripped('tertiary')
+colors['terminal.ansiYellow'] = '#' + hex_stripped('primary_fixed')
+colors['terminal.ansiBlue'] = '#' + hex_stripped('primary')
+colors['terminal.ansiMagenta'] = '#' + hex_stripped('secondary')
+colors['terminal.ansiCyan'] = '#' + hex_stripped('tertiary_fixed_dim')
+colors['terminal.ansiWhite'] = '#' + hex_stripped('on_surface')
+colors['terminal.ansiBrightBlack'] = '#' + hex_stripped('surface_container')
+colors['terminal.ansiBrightRed'] = '#' + hex_stripped('error_container')
+colors['terminal.ansiBrightGreen'] = '#' + hex_stripped('tertiary_container')
+colors['terminal.ansiBrightYellow'] = '#' + hex_stripped('primary_fixed_dim')
+colors['terminal.ansiBrightBlue'] = '#' + hex_stripped('inverse_primary')
+colors['terminal.ansiBrightMagenta'] = '#' + hex_stripped('secondary_fixed')
+colors['terminal.ansiBrightCyan'] = '#' + hex_stripped('on_tertiary_container')
+colors['terminal.ansiBrightWhite'] = '#' + hex_stripped('surface_bright')
+
+# Tabs
+colors['tab.activeBackground'] = '#' + hex_stripped('surface')
+colors['tab.activeForeground'] = '#' + hex_stripped('on_surface')
+colors['tab.activeBorder'] = '#' + hex_stripped('primary')
+colors['tab.inactiveBackground'] = '#' + hex_stripped('surface_dim')
+colors['tab.inactiveForeground'] = '#' + hex_stripped('on_surface_variant')
+colors['tab.hoverBackground'] = '#' + hex_stripped('surface_container')
+colors['tab.border'] = '#' + hex_stripped('surface_container_high')
+
+# Input
+colors['input.background'] = '#' + hex_stripped('surface_container_lowest')
+colors['input.foreground'] = '#' + hex_stripped('on_surface')
+colors['input.border'] = '#' + hex_stripped('outline')
+colors['input.placeholderForeground'] = '#' + hex_stripped('on_surface_variant')
+colors['inputOption.activeBorder'] = '#' + hex_stripped('primary')
+
+# List/Tree
+colors['list.activeSelectionBackground'] = '#' + hex_stripped('surface_container_high')
+colors['list.activeSelectionForeground'] = '#' + hex_stripped('on_surface')
+colors['list.inactiveSelectionBackground'] = '#' + hex_stripped('surface_container')
+colors['list.inactiveSelectionForeground'] = '#' + hex_stripped('on_surface')
+colors['list.hoverBackground'] = '#' + hex_stripped('surface_container')
+colors['list.highlightForeground'] = '#' + hex_stripped('primary')
+
+# Button
+colors['button.background'] = '#' + hex_stripped('primary')
+colors['button.foreground'] = '#' + hex_stripped('on_primary')
+colors['button.hoverBackground'] = '#' + hex_stripped('primary_fixed_dim')
+
+# Scrollbar
+colors['scrollbar.shadow'] = '#' + hex_stripped('shadow')
+colors['scrollbarSlider.background'] = '#' + hex_stripped('surface_container_high') + '80'
+colors['scrollbarSlider.hoverBackground'] = '#' + hex_stripped('surface_container_highest') + '99'
+colors['scrollbarSlider.activeBackground'] = '#' + hex_stripped('primary') + '66'
+colors['scrollbar.corner'] = '#' + hex_stripped('surface_dim')
+
+# Git
+colors['gitDecoration.addedResourceForeground'] = '#' + hex_stripped('tertiary')
+colors['gitDecoration.modifiedResourceForeground'] = '#' + hex_stripped('primary')
+colors['gitDecoration.deletedResourceForeground'] = '#' + hex_stripped('error')
+colors['gitDecoration.untrackedResourceForeground'] = '#' + hex_stripped('secondary')
+colors['gitDecoration.ignoredResourceForeground'] = '#' + hex_stripped('on_surface_variant')
+colors['gitDecoration.conflictingResourceForeground'] = '#' + hex_stripped('tertiary')
+
+# Minimap
+colors['minimap.background'] = '#' + hex_stripped('surface_dim')
+colors['minimapSlider.background'] = '#' + hex_stripped('surface_container_high') + '80'
+colors['minimapSlider.hoverBackground'] = '#' + hex_stripped('surface_container_highest') + '99'
+colors['minimapSlider.activeBackground'] = '#' + hex_stripped('primary') + '66'
+
+# Misc
+colors['dropdown.background'] = '#' + hex_stripped('surface')
+colors['dropdown.foreground'] = '#' + hex_stripped('on_surface')
+colors['dropdown.border'] = '#' + hex_stripped('outline')
+colors['menu.background'] = '#' + hex_stripped('surface_container')
+colors['menu.foreground'] = '#' + hex_stripped('on_surface')
+colors['menu.selectionBackground'] = '#' + hex_stripped('surface_container_high')
+colors['menu.selectionForeground'] = '#' + hex_stripped('on_surface')
+colors['menu.separatorBackground'] = '#' + hex_stripped('outline')
+colors['menubar.selectionBackground'] = '#' + hex_stripped('surface_container_high')
+colors['menubar.selectionForeground'] = '#' + hex_stripped('on_surface')
+colors['breadcrumb.foreground'] = '#' + hex_stripped('on_surface_variant')
+colors['breadcrumb.focusForeground'] = '#' + hex_stripped('primary')
+colors['notifications.background'] = '#' + hex_stripped('surface_container')
+colors['notifications.foreground'] = '#' + hex_stripped('on_surface')
+colors['editorWidget.background'] = '#' + hex_stripped('surface_container')
+colors['editorWidget.foreground'] = '#' + hex_stripped('on_surface')
+colors['quickInput.background'] = '#' + hex_stripped('surface_dim')
+colors['quickInput.foreground'] = '#' + hex_stripped('on_surface')
+colors['debugToolBar.background'] = '#' + hex_stripped('surface_container')
+
+# === Comprehensive additional overrides (prevents any Catppuccin Mocha bleed) ===
+
+# Editor — advanced
+colors['editor.selectionHighlightBorder'] = '#' + hex_stripped('primary')
+colors['editor.findMatchBorder'] = '#' + hex_stripped('primary')
+colors['editor.findRangeHighlightBackground'] = '#' + hex_stripped('surface_container') + '66'
+colors['editor.hoverHighlightBackground'] = '#' + hex_stripped('surface_container')
+colors['editor.inactiveSelectionBackground'] = '#' + hex_stripped('surface_container') + '4D'
+colors['editor.foldBackground'] = '#' + hex_stripped('surface_container') + '33'
+colors['editor.lightBulb.foreground'] = '#' + hex_stripped('primary')
+colors['editor.lightBulbAutoFix.foreground'] = '#' + hex_stripped('primary')
+colors['editor.snippetTabstopHighlightBackground'] = '#' + hex_stripped('surface_container_high')
+colors['editor.snippetTabstopHighlightBorder'] = '#' + hex_stripped('primary')
+colors['editor.snippetFinalTabstopHighlightBackground'] = '#' + hex_stripped('primary_container')
+colors['editor.snippetFinalTabstopHighlightBorder'] = '#' + hex_stripped('primary')
+colors['editor.stackFrameHighlightBackground'] = '#' + hex_stripped('error') + '33'
+colors['editorUnnecessaryCode.border'] = '#' + hex_stripped('outline')
+
+# Editor group / tab borders
+colors['editorGroup.emptyBackground'] = '#' + hex_stripped('surface_dim')
+colors['editorGroup.border'] = '#' + hex_stripped('surface_container_high')
+colors['editorGroup.dropBackground'] = '#' + hex_stripped('primary') + '1A'
+colors['editorGroupHeader.tabsBackground'] = '#' + hex_stripped('surface_dim')
+colors['editorGroupHeader.tabsBorder'] = '#' + hex_stripped('surface_container_high')
+colors['editorGroupHeader.noTabsBackground'] = '#' + hex_stripped('surface_dim')
+colors['editorGroupHeader.emptyBackground'] = '#' + hex_stripped('surface_dim')
+
+# Sidebar — detail
+colors['sideBar.border'] = '#' + hex_stripped('surface_container_high')
+colors['sideBarSectionHeader.border'] = '#' + hex_stripped('surface_container_high')
+colors['sideBar.dropBackground'] = '#' + hex_stripped('primary') + '1A'
+
+# Panel — detail
+colors['panel.dropBackground'] = '#' + hex_stripped('primary') + '1A'
+colors['panelSection.border'] = '#' + hex_stripped('surface_container_high')
+colors['panelSection.dropBackground'] = '#' + hex_stripped('primary') + '1A'
+colors['panelSectionHeader.background'] = '#' + hex_stripped('surface_container')
+colors['panelSectionHeader.foreground'] = '#' + hex_stripped('on_surface')
+
+# Activity Bar — detail
+colors['activityBar.border'] = '#' + hex_stripped('surface_container_high')
+colors['activityBar.dropBackground'] = '#' + hex_stripped('primary') + '1A'
+
+# Status Bar — detail
+colors['statusBar.border'] = '#' + hex_stripped('surface_container_high')
+colors['statusBar.focusBorder'] = '#' + hex_stripped('primary')
+colors['statusBar.noFolderBackground'] = '#' + hex_stripped('surface_container')
+colors['statusBarItem.activeBackground'] = '#' + hex_stripped('surface_container_high')
+colors['statusBarItem.hoverBackground'] = '#' + hex_stripped('surface_container_high')
+colors['statusBarItem.prominentBackground'] = '#' + hex_stripped('primary')
+colors['statusBarItem.prominentForeground'] = '#' + hex_stripped('on_primary')
+colors['statusBarItem.prominentHoverBackground'] = '#' + hex_stripped('primary_fixed_dim')
+colors['statusBarItem.errorBackground'] = '#' + hex_stripped('error')
+colors['statusBarItem.errorForeground'] = '#' + hex_stripped('on_error')
+colors['statusBarItem.warningBackground'] = '#' + hex_stripped('tertiary')
+colors['statusBarItem.warningForeground'] = '#' + hex_stripped('on_tertiary')
+
+# Title Bar — detail
+colors['titleBar.border'] = '#' + hex_stripped('surface_container_high')
+
+# Menu — detail
+colors['menu.border'] = '#' + hex_stripped('surface_container_high')
+
+# Dropdown — detail
+colors['dropdown.listBackground'] = '#' + hex_stripped('surface')
+
+# Input — detail
+colors['inputValidation.errorBackground'] = '#' + hex_stripped('error') + '33'
+colors['inputValidation.errorBorder'] = '#' + hex_stripped('error')
+colors['inputValidation.errorForeground'] = '#' + hex_stripped('on_error')
+colors['inputValidation.infoBackground'] = '#' + hex_stripped('tertiary') + '33'
+colors['inputValidation.infoBorder'] = '#' + hex_stripped('tertiary')
+colors['inputValidation.infoForeground'] = '#' + hex_stripped('on_tertiary')
+colors['inputValidation.warningBackground'] = '#' + hex_stripped('primary_fixed') + '33'
+colors['inputValidation.warningBorder'] = '#' + hex_stripped('primary_fixed')
+colors['inputValidation.warningForeground'] = '#' + hex_stripped('surface')
+
+# List — detail
+colors['list.dropBackground'] = '#' + hex_stripped('primary') + '1A'
+colors['list.filterMatchBackground'] = '#' + hex_stripped('primary') + '4D'
+colors['list.filterMatchBorder'] = '#' + hex_stripped('primary')
+colors['list.focusBackground'] = '#' + hex_stripped('surface_container_high')
+colors['list.focusForeground'] = '#' + hex_stripped('on_surface')
+colors['list.highlightForeground'] = '#' + hex_stripped('primary')
+colors['list.deemphasizedForeground'] = '#' + hex_stripped('on_surface_variant')
+colors['list.errorForeground'] = '#' + hex_stripped('error')
+colors['list.warningForeground'] = '#' + hex_stripped('tertiary')
+colors['listFilterWidget.background'] = '#' + hex_stripped('surface_container')
+colors['listFilterWidget.outline'] = '#' + hex_stripped('primary')
+colors['listFilterWidget.noMatchesOutline'] = '#' + hex_stripped('error')
+
+# Quick input — detail
+colors['quickInput.list.focusBackground'] = '#' + hex_stripped('surface_container_high')
+colors['quickInput.list.focusForeground'] = '#' + hex_stripped('on_surface')
+colors['pickerGroup.border'] = '#' + hex_stripped('surface_container_high')
+colors['pickerGroup.foreground'] = '#' + hex_stripped('primary')
+
+# Button — detail
+colors['button.secondaryBackground'] = '#' + hex_stripped('surface_container_high')
+colors['button.secondaryForeground'] = '#' + hex_stripped('on_surface')
+colors['button.secondaryHoverBackground'] = '#' + hex_stripped('surface_container_highest')
+colors['checkbox.background'] = '#' + hex_stripped('surface')
+colors['checkbox.foreground'] = '#' + hex_stripped('on_surface')
+colors['checkbox.border'] = '#' + hex_stripped('outline')
+colors['checkbox.selectBackground'] = '#' + hex_stripped('primary')
+colors['checkbox.selectForeground'] = '#' + hex_stripped('on_primary')
+
+# Badge
+colors['badge.background'] = '#' + hex_stripped('primary')
+colors['badge.foreground'] = '#' + hex_stripped('on_primary')
+
+# Progress bar
+colors['progressBar.background'] = '#' + hex_stripped('primary')
+
+# Focus / outline
+colors['focusBorder'] = '#' + hex_stripped('primary')
+colors['contrastBorder'] = '#' + hex_stripped('surface_container_high')
+colors['contrastActiveBorder'] = '#' + hex_stripped('primary')
+colors['sash.hoverBorder'] = '#' + hex_stripped('primary')
+
+# Icons / editor pane
+colors['icon.foreground'] = '#' + hex_stripped('on_surface')
+colors['editorPane.background'] = '#' + hex_stripped('surface_dim')
+
+# Watermark / editor group labels
+colors['watermark.background'] = '#' + hex_stripped('surface_container')
+colors['editorPlaceholder.foreground'] = '#' + hex_stripped('on_surface_variant')
+
+# Gutter
+colors['editorGutter.background'] = '#' + hex_stripped('surface_dim')
+colors['editorGutter.modifiedBackground'] = '#' + hex_stripped('primary')
+colors['editorGutter.addedBackground'] = '#' + hex_stripped('tertiary')
+colors['editorGutter.deletedBackground'] = '#' + hex_stripped('error')
+colors['editorGutter.foldingControlForeground'] = '#' + hex_stripped('on_surface_variant')
+
+# Diff editor
+colors['diffEditor.insertedTextBackground'] = '#' + hex_stripped('tertiary') + '26'
+colors['diffEditor.removedTextBackground'] = '#' + hex_stripped('error') + '26'
+colors['diffEditor.insertedLineBackground'] = '#' + hex_stripped('tertiary') + '1A'
+colors['diffEditor.removedLineBackground'] = '#' + hex_stripped('error') + '1A'
+colors['diffEditor.border'] = '#' + hex_stripped('surface_container_high')
+colors['diffEditor.diagonalFill'] = '#' + hex_stripped('surface_container_high')
+
+# Merge conflicts
+colors['merge.currentHeaderBackground'] = '#' + hex_stripped('primary') + '4D'
+colors['merge.currentContentBackground'] = '#' + hex_stripped('primary') + '26'
+colors['merge.incomingHeaderBackground'] = '#' + hex_stripped('tertiary') + '4D'
+colors['merge.incomingContentBackground'] = '#' + hex_stripped('tertiary') + '26'
+colors['merge.border'] = '#' + hex_stripped('primary')
+colors['merge.commonHeaderBackground'] = '#' + hex_stripped('surface_container') + '4D'
+colors['merge.commonContentBackground'] = '#' + hex_stripped('surface_container') + '26'
+colors['editorOverviewRuler.modifiedForeground'] = '#' + hex_stripped('primary')
+colors['editorOverviewRuler.addedForeground'] = '#' + hex_stripped('tertiary')
+colors['editorOverviewRuler.deletedForeground'] = '#' + hex_stripped('error')
+colors['editorOverviewRuler.errorForeground'] = '#' + hex_stripped('error')
+colors['editorOverviewRuler.warningForeground'] = '#' + hex_stripped('tertiary')
+colors['editorOverviewRuler.infoForeground'] = '#' + hex_stripped('primary')
+colors['editorOverviewRuler.bracketMatchForeground'] = '#' + hex_stripped('primary')
+colors['editorOverviewRuler.background'] = '#' + hex_stripped('surface_dim')
+
+# Notifications
+colors['notificationCenter.border'] = '#' + hex_stripped('surface_container_high')
+colors['notificationCenterHeader.background'] = '#' + hex_stripped('surface_container_high')
+colors['notificationCenterHeader.foreground'] = '#' + hex_stripped('on_surface')
+colors['notificationToast.border'] = '#' + hex_stripped('surface_container_high')
+colors['notifications.border'] = '#' + hex_stripped('surface_container_high')
+colors['notificationsErrorIcon.foreground'] = '#' + hex_stripped('error')
+colors['notificationsWarningIcon.foreground'] = '#' + hex_stripped('tertiary')
+colors['notificationsInfoIcon.foreground'] = '#' + hex_stripped('primary')
+
+# Extensions
+colors['extensionButton.prominentBackground'] = '#' + hex_stripped('primary')
+colors['extensionButton.prominentForeground'] = '#' + hex_stripped('on_primary')
+colors['extensionButton.prominentHoverBackground'] = '#' + hex_stripped('primary_fixed_dim')
+colors['extensionButton.background'] = '#' + hex_stripped('surface_container_high')
+colors['extensionButton.foreground'] = '#' + hex_stripped('on_surface')
+colors['extensionButton.hoverBackground'] = '#' + hex_stripped('surface_container_highest')
+colors['extensionBadge.remoteBackground'] = '#' + hex_stripped('primary')
+colors['extensionBadge.remoteForeground'] = '#' + hex_stripped('on_primary')
+colors['extensionIcon.starForeground'] = '#' + hex_stripped('primary')
+colors['extensionIcon.verifiedForeground'] = '#' + hex_stripped('primary')
+
+# Settings
+colors['settings.headerForeground'] = '#' + hex_stripped('on_surface')
+colors['settings.modifiedItemIndicator'] = '#' + hex_stripped('primary')
+colors['settings.dropdownBackground'] = '#' + hex_stripped('surface')
+colors['settings.dropdownForeground'] = '#' + hex_stripped('on_surface')
+colors['settings.dropdownBorder'] = '#' + hex_stripped('outline')
+colors['settings.checkboxBackground'] = '#' + hex_stripped('surface')
+colors['settings.checkboxForeground'] = '#' + hex_stripped('on_surface')
+colors['settings.checkboxBorder'] = '#' + hex_stripped('outline')
+colors['settings.textInputBackground'] = '#' + hex_stripped('surface_container_lowest')
+colors['settings.textInputForeground'] = '#' + hex_stripped('on_surface')
+colors['settings.textInputBorder'] = '#' + hex_stripped('outline')
+colors['settings.numberInputBackground'] = '#' + hex_stripped('surface_container_lowest')
+colors['settings.numberInputForeground'] = '#' + hex_stripped('on_surface')
+colors['settings.numberInputBorder'] = '#' + hex_stripped('outline')
+
+# Welcome / getting started
+colors['welcomePage.background'] = '#' + hex_stripped('surface_dim')
+colors['welcomePage.tileBackground'] = '#' + hex_stripped('surface_container')
+colors['welcomePage.tileHoverBackground'] = '#' + hex_stripped('surface_container_high')
+colors['walkThrough.embeddedEditorBackground'] = '#' + hex_stripped('surface_dim')
+
+# Keybinding
+colors['keybindingLabel.background'] = '#' + hex_stripped('surface_container')
+colors['keybindingLabel.foreground'] = '#' + hex_stripped('on_surface')
+colors['keybindingLabel.border'] = '#' + hex_stripped('outline')
+colors['keybindingLabel.bottomBorder'] = '#' + hex_stripped('surface_container_high')
+
+# Toolbar
+colors['toolbar.hoverBackground'] = '#' + hex_stripped('surface_container_high')
+colors['toolbar.activeBackground'] = '#' + hex_stripped('surface_container_high')
+
+# Command center
+colors['commandCenter.background'] = '#' + hex_stripped('surface_container')
+colors['commandCenter.foreground'] = '#' + hex_stripped('on_surface')
+colors['commandCenter.border'] = '#' + hex_stripped('surface_container_high')
+colors['commandCenter.activeBackground'] = '#' + hex_stripped('surface_container_high')
+colors['commandCenter.activeBorder'] = '#' + hex_stripped('primary')
+colors['commandCenter.activeForeground'] = '#' + hex_stripped('on_surface')
+
+# Selection / find
+colors['selection.background'] = '#' + hex_stripped('primary')
+colors['findRangeWidget.background'] = '#' + hex_stripped('surface_container') + '4D'
+colors['findRangeWidget.border'] = '#' + hex_stripped('primary')
+
+# Editor ranges
+colors['editorRangeHighlight.background'] = '#' + hex_stripped('surface_container') + '40'
+colors['editorRangeHighlight.border'] = '#' + hex_stripped('outline')
+colors['editorCursor.ltrForeground'] = '#' + hex_stripped('primary')
+colors['editorCursor.rtlForeground'] = '#' + hex_stripped('primary')
+colors['editorMultiCursor.separatorForeground'] = '#' + hex_stripped('outline')
+colors['editorMultiCursor.secondaryCursorForeground'] = '#' + hex_stripped('tertiary')
+colors['editorMultiCursor.primaryCursorForeground'] = '#' + hex_stripped('primary')
+
+# Hint / inline suggestion
+colors['editorHoverWidget.background'] = '#' + hex_stripped('surface_container')
+colors['editorHoverWidget.foreground'] = '#' + hex_stripped('on_surface')
+colors['editorHoverWidget.border'] = '#' + hex_stripped('surface_container_high')
+colors['editorSuggestWidget.background'] = '#' + hex_stripped('surface_container')
+colors['editorSuggestWidget.foreground'] = '#' + hex_stripped('on_surface')
+colors['editorSuggestWidget.border'] = '#' + hex_stripped('surface_container_high')
+colors['editorSuggestWidget.selectedBackground'] = '#' + hex_stripped('surface_container_high')
+colors['editorSuggestWidget.highlightForeground'] = '#' + hex_stripped('primary')
+colors['editorSuggestWidget.focusHighlightForeground'] = '#' + hex_stripped('primary')
+colors['editorInlineHint.background'] = '#' + hex_stripped('surface_container')
+colors['editorInlineHint.foreground'] = '#' + hex_stripped('on_surface_variant')
+colors['editorStickyScroll.background'] = '#' + hex_stripped('surface_dim')
+
+# Terminal
+colors['terminal.border'] = '#' + hex_stripped('surface_container_high')
+colors['terminal.selectionBackground'] = '#' + hex_stripped('primary') + '4D'
+colors['terminalCursor.background'] = '#' + hex_stripped('surface')
+colors['terminalCursor.foreground'] = '#' + hex_stripped('primary')
+
+# Breadcrumb
+colors['breadcrumb.background'] = '#' + hex_stripped('surface_dim')
+colors['breadcrumbPicker.background'] = '#' + hex_stripped('surface_container')
+
+# Chat / inline
+colors['inlineChat.background'] = '#' + hex_stripped('surface_container')
+colors['inlineChat.foreground'] = '#' + hex_stripped('on_surface')
+colors['inlineChat.border'] = '#' + hex_stripped('primary')
+
+# Set UI chrome overrides
+settings['workbench.colorCustomizations'] = colors
+
+# Map hypr theme name -> VSCodium syntax theme for proper token highlighting
+# Each theme has a matching VSCodium extension installed
+VSCODE_THEMES = {
+    'Catppuccin-Mocha': 'Catppuccin Mocha',
+    'Catppuccin-Macchiato': 'Catppuccin Macchiato',
+    'Catppuccin-Frappe': 'Catppuccin Frapp\u00E9',
+    'Catppuccin-Latte': 'Catppuccin Latte',
+    'Nord': 'Nord',
+    'Dracula': 'Dracula',
+    'Everforest': 'Everforest Dark',
+    'Gruvbox': 'Gruvbox Dark Hard',
+    'Nightfox': 'nightfox',
+    'Ariadne': 'Catppuccin Mocha',
+    'Noir': 'PureBlack',
+    'Rose-Pine': 'Ros\u00E9 Pine',
+    'Solarized-Dark': 'Solarized One',
+    'Tokyo-Night': 'Tokyo Night',
+}
+theme_name = VSCODE_THEMES.get('$SELECTED', 'Catppuccin Mocha')
+settings['workbench.colorTheme'] = theme_name
+
+# Write back (VS Code hot-reloads settings.json instantly)
+with open(settings_path, 'w') as f:
+    json.dump(settings, f, indent=4)
+
+print(f'VSCodium: applied UI colors + syntax theme \"{theme_name}\" (hot-reloaded)')
+" "$VSCODE_PALETTE"
+
+# 15. Zed — full theme file for the Zed editor
+ZED_THEME_DIR="$HOME/.config/zed/themes"
+ZED_SETTINGS="$HOME/.config/zed/settings.json"
+mkdir -p "$ZED_THEME_DIR"
+python3 -c "
+import json, os
+
+palette = {}
+with open('$PALETTE') as f:
+    for line in f:
+        line = line.strip()
+        if not line or line.startswith('#') or '=' not in line:
+            continue
+        k, v = line.split('=', 1)
+        palette[k.strip()] = v.strip()
+
+def h(key):
+    return palette.get(key, '#000000')
+
+# Map palette keys to semantic color names
+C = {
+    'bg':         h('surface_container_lowest'),
+    'surface':    h('surface'),
+    'surface_dim': h('surface_dim'),
+    'surface_container': h('surface_container'),
+    'surface_container_high': h('surface_container_high'),
+    'surface_container_highest': h('surface_container_highest'),
+    'surface_bright': h('surface_bright'),
+    'fg':         h('on_surface'),
+    'fg_muted':   h('on_surface_variant'),
+    'primary':    h('primary'),
+    'on_primary': h('on_primary'),
+    'primary_container': h('primary_container'),
+    'primary_fixed': h('primary_fixed'),
+    'primary_fixed_dim': h('primary_fixed_dim'),
+    'secondary':  h('secondary'),
+    'secondary_fixed': h('secondary_fixed'),
+    'secondary_fixed_dim': h('secondary_fixed_dim'),
+    'tertiary':   h('tertiary'),
+    'tertiary_fixed': h('tertiary_fixed'),
+    'tertiary_fixed_dim': h('tertiary_fixed_dim'),
+    'error':      h('error'),
+    'on_error':   h('on_error'),
+    'outline':    h('outline'),
+    'shadow':     h('shadow'),
+}
+
+theme = {
+    'name': 'Ariadne',
+    'author': 'theme-switcher',
+    'themes': [
+        {
+            'name': 'Ariadne',
+            'appearance': 'dark',
+            'style': {
+                # App background
+                'background': C['bg'],
+                'background.appearance': 'opaque',
+
+                # Surfaces
+                'surface.background': C['surface'],
+                'elevated_surface.background': C['surface_container'],
+                'panel.background': C['surface'],
+                'status_bar.background': C['surface_container'],
+                'toolbar.background': C['surface_dim'],
+                'title_bar.background': C['surface_container'],
+                'title_bar.inactive_background': C['surface'],
+                'tab_bar.background': C['surface_dim'],
+                'tab.active_background': C['surface'],
+                'tab.inactive_background': C['surface_dim'],
+
+                # Text
+                'text': C['fg'],
+                'text.muted': C['fg_muted'],
+                'text.accent': C['primary'],
+                'text.disabled': C['fg_muted'],
+                'text.placeholder': C['fg_muted'],
+
+                # Icons
+                'icon': C['fg'],
+                'icon.muted': C['fg_muted'],
+                'icon.accent': C['primary'],
+                'icon.disabled': C['fg_muted'],
+
+                # Borders
+                'border': C['outline'],
+                'border.variant': C['surface_container_high'],
+                'border.focused': C['primary'],
+                'border.selected': C['primary'],
+                'border.disabled': C['surface_container_high'],
+                'border.transparent': C['shadow'],
+
+                # Elements (buttons, inputs, etc.)
+                'element.background': C['surface_container_high'],
+                'element.hover': C['surface_container_highest'],
+                'element.active': C['primary'],
+                'element.selected': C['primary'],
+                'element.selection_background': C['primary'] + '40',
+                'element.disabled': C['surface_container'],
+                'ghost_element.background': C['bg'],
+                'ghost_element.hover': C['surface_container'],
+                'ghost_element.active': C['surface_container_high'],
+                'ghost_element.selected': C['surface_container_high'],
+                'ghost_element.disabled': C['bg'],
+
+                # Status colors
+                'error': C['error'],
+                'error.background': C['error'],
+                'error.border': C['error'],
+                'warning': '#d4a040',
+                'warning.background': '#d4a04020',
+                'warning.border': '#d4a04080',
+                'success': C['primary'],
+                'success.background': C['primary'],
+                'success.border': C['primary'],
+                'info': C['primary'],
+                'info.background': C['primary'],
+                'info.border': C['primary'],
+                'hint': C['fg_muted'],
+                'hint.background': C['fg_muted'],
+                'hint.border': C['fg_muted'],
+
+                # Git status colors
+                'created': C['primary'],
+                'created.background': C['primary'],
+                'created.border': C['primary'],
+                'modified': C['tertiary'],
+                'modified.background': C['tertiary'],
+                'modified.border': C['tertiary'],
+                'deleted': C['error'],
+                'deleted.background': C['error'],
+                'deleted.border': C['error'],
+                'renamed': C['primary'],
+                'renamed.background': C['primary'],
+                'renamed.border': C['primary'],
+                'ignored': C['fg_muted'],
+                'ignored.background': C['fg_muted'],
+                'ignored.border': C['fg_muted'],
+                'conflict': C['secondary'],
+                'conflict.background': C['secondary'],
+                'conflict.border': C['secondary'],
+                'hidden': C['fg_muted'],
+                'hidden.background': C['fg_muted'],
+                'hidden.border': C['fg_muted'],
+                'predictive': C['primary_fixed'],
+                'predictive.background': C['primary_fixed'],
+                'predictive.border': C['primary_fixed'],
+
+                # Version control (file tree/gutter git status colors)
+                'version_control.added': C['primary'],
+                'version_control.deleted': C['error'],
+                'version_control.modified': C['tertiary'],
+                'version_control.renamed': C['primary'],
+                'version_control.conflict': C['secondary'],
+                'version_control.ignored': C['fg_muted'],
+                # Version control word-level diff (inline diff highlights)
+                'version_control.word_added': C['primary'] + '59',  # ~0.35 opacity
+                'version_control.word_deleted': C['error'] + 'CC',   # ~0.80 opacity
+                # Version control conflict markers (merge conflict backgrounds)
+                'version_control.conflict_marker.ours': C['primary'] + '80',  # ~0.50 opacity
+                'version_control.conflict_marker.theirs': C['secondary'] + '80',  # ~0.50 opacity
+
+                # Editor
+                'editor.background': C['bg'],
+                'editor.foreground': C['fg'],
+                'editor.gutter.background': C['surface_dim'],
+                'editor.line_number': C['outline'],
+                'editor.active_line_number': C['primary'],
+                'editor.active_line.background': C['surface_container'] + '80',
+                'editor.highlighted_line.background': C['surface_container'],
+                'editor.indent_guide': C['surface_container_high'],
+                'editor.indent_guide_active': C['primary'],
+                'editor.wrap_guide': C['surface_container_high'],
+                'editor.active_wrap_guide': C['primary'],
+                'editor.invisible': C['outline'],
+                'editor.subheader.background': C['surface_dim'],
+                'editor.document_highlight.read_background': C['surface_container'] + '66',
+                'editor.document_highlight.write_background': C['primary_container'] + '4D',
+                'editor.document_highlight.bracket_background': C['surface_container_high'],
+
+                # Editor diff hunks (git indicators on scrollbar/gutter)
+                'editor.diff_hunk.added.background': C['primary'] + '3D',   # ~0.24 opacity (doubled from default 0.12)
+                'editor.diff_hunk.added.hollow_background': C['primary'] + '1F',  # ~0.12 (doubled from default 0.06)
+                'editor.diff_hunk.added.hollow_border': C['primary'] + '80',  # ~0.50 (increased from 0.36)
+                'editor.diff_hunk.deleted.background': C['error'] + '3D',
+                'editor.diff_hunk.deleted.hollow_background': C['error'] + '1F',
+                'editor.diff_hunk.deleted.hollow_border': C['error'] + '80',
+
+                # Drop target
+                'drop_target.background': C['primary'] + '1A',
+                'drop_target.border': C['outline'],
+
+                # Panes
+                'pane.focused_border': C['primary'],
+                'pane_group.border': C['surface_container_high'],
+                'panel.focused_border': C['primary'],
+                'panel.indent_guide': C['surface_container_high'],
+                'panel.indent_guide_active': C['primary'],
+                'panel.indent_guide_hover': C['surface_container_highest'],
+
+                # Scrollbar
+                'scrollbar.thumb.background': C['surface_container_high'] + '80',
+                'scrollbar.thumb.hover_background': C['surface_container_highest'] + '99',
+                'scrollbar.thumb.active_background': C['surface_bright'] + '99',
+                'scrollbar.thumb.border': C['surface_container_high'],
+                'scrollbar.track.background': C['surface_dim'],
+                'scrollbar.track.border': C['surface_container_high'],
+
+                # Minimap
+                'minimap.thumb.background': C['surface_container_high'] + '80',
+                'minimap.thumb.hover_background': C['surface_container_highest'] + '99',
+                'minimap.thumb.active_background': C['surface_bright'] + '99',
+                'minimap.thumb.border': C['surface_container_high'],
+
+                # Search
+                'search.match_background': C['primary'] + '4D',
+                'search.active_match_background': C['primary'] + '80',
+
+                # Link text
+                'link_text.hover': C['primary'],
+
+                # Accent colors (6-item array)
+                'accents': [
+                    C['primary'],
+                    C['secondary'],
+                    C['tertiary'],
+                    C['primary_fixed'],
+                    C['secondary_fixed'],
+                    C['tertiary_fixed'],
+                ],
+
+                # Player colors — first is local cursor/selection
+                'players': [
+                    {
+                        'cursor': C['primary'],
+                        'background': C['primary_container'],
+                        'selection': C['surface_container_high'],
+                    },
+                ],
+
+                # Terminal ANSI
+                'terminal.background': C['surface_dim'],
+                'terminal.foreground': C['fg'],
+                'terminal.bright_foreground': C['fg'],
+                'terminal.dim_foreground': C['fg_muted'],
+                'terminal.ansi.background': C['surface_dim'],
+                'terminal.ansi.black': C['bg'],
+                'terminal.ansi.red': C['error'],
+                'terminal.ansi.green': C['primary'],
+                'terminal.ansi.yellow': C['primary_fixed'],
+                'terminal.ansi.blue': C['primary'],
+                'terminal.ansi.magenta': C['secondary'],
+                'terminal.ansi.cyan': C['tertiary'],
+                'terminal.ansi.white': C['fg'],
+                'terminal.ansi.bright_black': C['surface_container'],
+                'terminal.ansi.bright_red': C['error'],
+                'terminal.ansi.bright_green': C['tertiary'],
+                'terminal.ansi.bright_yellow': C['primary_fixed_dim'],
+                'terminal.ansi.bright_blue': C['primary'],
+                'terminal.ansi.bright_magenta': C['secondary'],
+                'terminal.ansi.bright_cyan': C['tertiary'],
+                'terminal.ansi.bright_white': C['surface_bright'],
+                'terminal.ansi.dim_black': C['bg'],
+                'terminal.ansi.dim_red': C['error'],
+                'terminal.ansi.dim_green': C['tertiary'],
+                'terminal.ansi.dim_yellow': C['primary_fixed_dim'],
+                'terminal.ansi.dim_blue': C['primary'],
+                'terminal.ansi.dim_magenta': C['secondary'],
+                'terminal.ansi.dim_cyan': C['tertiary'],
+                'terminal.ansi.dim_white': C['fg_muted'],
+
+                # Syntax highlighting
+                'syntax': {
+                    'attribute':  {'color': C['primary']},
+                    'boolean':    {'color': C['primary']},
+                    'character':  {'color': C['tertiary']},
+                    'comment':    {'color': C['fg_muted'], 'font_style': 'italic'},
+                    'comment.doc': {'color': C['fg_muted'], 'font_style': 'italic'},
+                    'constant':   {'color': C['primary']},
+                    'constructor': {'color': C['secondary']},
+                    'embedded':   {'color': C['tertiary']},
+                    'emphasis':   {'font_style': 'italic'},
+                    'emphasis.strong': {'font_weight': 700},
+                    'enum':       {'color': C['secondary']},
+                    'function':   {'color': C['primary']},
+                    'function.method': {'color': C['primary']},
+                    'function.special': {'color': C['secondary']},
+                    'keyword':    {'color': C['secondary']},
+                    'keyword.control': {'color': C['secondary']},
+                    'label':      {'color': C['primary']},
+                    'link_text':  {'color': C['primary']},
+                    'link_uri':   {'color': C['primary']},
+                    'number':     {'color': C['primary']},
+                    'operator':   {'color': C['secondary']},
+                    'predictive': {'color': C['fg_muted']},
+                    'preproc':    {'color': C['secondary']},
+                    'primary':    {'color': C['primary']},
+                    'property':   {'color': C['primary']},
+                    'punctuation': {'color': C['fg_muted']},
+                    'punctuation.bracket': {'color': C['fg']},
+                    'punctuation.delimiter': {'color': C['fg_muted']},
+                    'punctuation.special': {'color': C['secondary']},
+                    'self':       {'color': C['primary'], 'font_style': 'italic'},
+                    'string':     {'color': C['tertiary']},
+                    'string.special': {'color': C['primary']},
+                    'tag':        {'color': C['secondary']},
+                    'type':       {'color': C['secondary']},
+                    'type.builtin': {'color': C['secondary']},
+                    'variable':   {'color': C['fg']},
+                    'variable.special': {'color': C['primary']},
+                    'variant':    {'color': C['primary_fixed']},
+                },
+            },
+        },
+    ],
+}
+
+# Write theme file
+theme_path = os.path.expanduser('$ZED_THEME_DIR/ariadne.json')
+with open(theme_path, 'w') as f:
+    json.dump(theme, f, indent=2)
+
+# Update Zed settings to use the new theme
+settings_path = os.path.expanduser('$ZED_SETTINGS')
+settings = {}
+if os.path.exists(settings_path):
+    try:
+        with open(settings_path) as f:
+            # Zed uses JSONC (JSON with comments + trailing commas).
+            # Parse properly: strip comments (outside strings) then trailing commas.
+            content = f.read()
+            import re
+
+            # Remove // line comments and /* block comments (not inside strings)
+            result = []
+            i = 0
+            in_str = False
+            str_char = None
+            while i < len(content):
+                c = content[i]
+                if in_str:
+                    result.append(c)
+                    if c == '\\\\' and i + 1 < len(content):
+                        result.append(content[i+1])
+                        i += 2
+                        continue
+                    if c == str_char:
+                        in_str = False
+                else:
+                    if c in ('\"', \"'\"):
+                        in_str = True
+                        str_char = c
+                        result.append(c)
+                    elif c == '/' and i + 1 < len(content) and content[i+1] == '/':
+                        # // comment: skip to end of line
+                        i += 2
+                        while i < len(content) and content[i] != '\\n':
+                            i += 1
+                        result.append('\\n')
+                        i += 1
+                        continue
+                    elif c == '/' and i + 1 < len(content) and content[i+1] == '*':
+                        # /* comment */: skip to */
+                        i += 2
+                        while i + 1 < len(content) and not (content[i] == '*' and content[i+1] == '/'):
+                            i += 1
+                        i += 2  # skip */
+                        continue
+                    else:
+                        result.append(c)
+                i += 1
+            content = ''.join(result)
+
+            # Remove trailing commas before ] or }
+            content = re.sub(r',\s*([\\]}])', r'\\1', content)
+
+            settings = json.loads(content)
+    except Exception as e:
+        print(f'Zed: could not parse existing settings.json ({e}), creating fresh')
+        settings = {}
+
+settings['theme'] = {
+    'mode': 'dark',
+    'light': settings.get('theme', {}).get('light', 'One Light') if isinstance(settings.get('theme'), dict) else 'One Light',
+    'dark': 'Ariadne',
+}
+
+with open(settings_path, 'w') as f:
+    json.dump(settings, f, indent=2)
+
+print(f'Zed: wrote theme \"Ariadne\" → {theme_path} (set in settings.json)')
+"
+
+# 17. Brave / Chrome — browser theme (load as unpacked extension)
+BRAVE_THEME_DIR="$HOME/.config/brave-theme"
+mkdir -p "$BRAVE_THEME_DIR"
+mkdir -p "$BRAVE_THEME_DIR/images"
+
+# --- generate placeholder icons (16px, 48px, 128px) if missing ---
+if [ ! -f "$BRAVE_THEME_DIR/images/icon128.png" ]; then
+  python3 -c "
+import zlib, struct
+
+def make_png(w, h):
+    raw = b'\x00' * (w * h * 4)
+    def chunk(ctype, data):
+        c = ctype + data
+        return struct.pack('>I', len(data)) + c + struct.pack('>I', zlib.crc32(c) & 0xffffffff)
+    ihdr = struct.pack('>IIBBBBB', w, h, 8, 6, 0, 0, 0)
+    return b'\x89PNG\r\n\x1a\n' + chunk(b'IHDR', ihdr) + chunk(b'IDAT', zlib.compress(raw)) + chunk(b'IEND', b'')
+
+for size in (16, 48, 128):
+    with open('$BRAVE_THEME_DIR/images/icon{}.png'.format(size), 'wb') as f:
+        f.write(make_png(size, size))
+print('icons: placeholder PNGs created')
+"
+fi
+
+BRAVE_VERSION="1.$(date +%Y%m%d.%H%M)"
+python3 -c "
+import json
+
+palette = {}
+with open('$PALETTE') as f:
+    for line in f:
+        line = line.strip()
+        if not line or line.startswith('#') or '=' not in line:
+            continue
+        k, v = line.split('=', 1)
+        palette[k.strip()] = v.strip()
+
+def h(key):
+    return palette.get(key, '#000000')
+
+def rgb(hex_color):
+    c = hex_color.lstrip('#')
+    return [int(c[i:i+2], 16) for i in (0, 2, 4)]
+
+SURFACE       = rgb(h('surface'))
+SURFACE_DIM   = rgb(h('surface_dim'))
+SURFACE_CONT  = rgb(h('surface_container'))
+BG            = rgb(h('surface_container_lowest'))
+FG            = rgb(h('on_surface'))
+FG_MUTED      = rgb(h('on_surface_variant'))
+PRIMARY       = rgb(h('primary'))
+
+VER = '$BRAVE_VERSION'
+
+manifest = {
+    'manifest_version': 3,
+    'version': VER,
+    'name': 'Ariadne',
+    'description': 'Ariadne browser theme — generated from theme-switcher',
+    'icons': {
+        '16': 'images/icon16.png',
+        '48': 'images/icon48.png',
+        '128': 'images/icon128.png',
+    },
+    'theme': {
+        'colors': {
+            'frame':                          SURFACE,
+            'frame_inactive':                 SURFACE_DIM,
+            'frame_incognito':                BG,
+            'frame_incognito_inactive':       SURFACE_DIM,
+            'toolbar':                        SURFACE_CONT,
+            'tab_text':                       FG,
+            'tab_background_text':            FG_MUTED,
+            'bookmark_text':                  FG,
+            'ntp_background':                 BG,
+            'ntp_text':                       FG,
+            'ntp_link':                       PRIMARY,
+            'ntp_section':                    SURFACE_CONT,
+            'omnibox_text':                   FG,
+            'omnibox_background':             BG,
+            'toolbar_button_icon':            FG_MUTED,
+            'background_tab_inactive_text':   FG_MUTED,
+            'toolbar_text':                   FG,
+            'button_background':              SURFACE,
+        },
+        'tints': {},
+        'properties': {
+            'ntp_background_alignment': 'bottom',
+            'ntp_background_repeat': 'no-repeat',
+        },
+    },
+}
+
+path = '$BRAVE_THEME_DIR'
+with open(path + '/manifest.json', 'w') as f:
+    json.dump(manifest, f, indent=2)
+
+print(f'Brave/Chrome: theme written to {path}/manifest.json')
+"
+
+echo ""
+echo "================================================================"
+echo "  Brave / Chrome theme generated!"
+echo "  Folder: $BRAVE_THEME_DIR"
+echo ""
+echo "  FIRST-TIME SETUP (one-time):"
+echo "    1. Open brave://extensions/"
+echo "    2. Enable 'Developer mode' (toggle top-right)"
+echo "    3. Click 'Load unpacked'"
+echo "    4. Select: $BRAVE_THEME_DIR"
+echo ""
+echo "  AFTER SWITCHING THEMES (re-run theme-switcher):"
+echo "    - Brave should auto-detect the updated manifest (version bumps"
+echo "      each run) and re-apply the theme. If colors don't update:"
+echo "    - Go to brave://settings/appearance"
+echo "    - Click the Ariadne theme card to re-activate it"
+echo "    - Or go to brave://extensions/ and click refresh (↻) on Ariadne"
+echo "================================================================"
+echo ""
+
+
+# 17. herdr — agent terminal multiplexer. herdr has no config-include, so we
+# splice the M3 palette into [theme.custom] + ui.accent in config.toml in
+# place, preserving the user's manual keys (terminal, keys, ui, session…).
+HERDR_CONFIG="$HOME/.config/herdr/config.toml"
+mkdir -p "$(dirname "$HERDR_CONFIG")"
+python3 - "$PALETTE" "$HERDR_CONFIG" <<'PYEOF'
+import sys, os
+
+palette_file, config_path = sys.argv[1], sys.argv[2]
+
+palette = {}
+with open(palette_file) as f:
+    for line in f:
+        line = line.strip()
+        if not line or line.startswith('#'):
+            continue
+        if '=' in line:
+            k, v = line.split('=', 1)
+            palette[k.strip()] = v.strip()
+
+def h(key):
+    return palette.get(key, '#ffffff').lstrip('#')
+
+# M3 palette -> herdr [theme.custom] tokens (mirrors the script's VSCode/terminal mapping)
+tokens = [
+    ('accent',      h('primary')),
+    ('panel_bg',    h('surface')),
+    ('surface0',    h('surface_container')),
+    ('surface1',    h('surface_container_high')),
+    ('surface_dim', h('surface_dim')),
+    ('overlay0',    h('outline_variant')),
+    ('overlay1',    h('outline')),
+    ('text',        h('on_surface')),
+    ('subtext0',    h('on_surface_variant')),
+    ('mauve',       h('secondary')),
+    ('green',       h('tertiary')),
+    ('yellow',      h('primary_fixed')),
+    ('red',         h('error')),
+    ('blue',        h('primary_fixed_dim')),
+    ('teal',        h('tertiary_fixed_dim')),
+    ('peach',       h('secondary_fixed')),
+]
+accent = h('primary')
+
+def theme_block():
+    out = [
+        '[theme]',
+        '# Theme section — regenerated by theme-switcher on every theme change.',
+        'name = "tokyo-night"',
+        'auto_switch = false',
+        '',
+        '[theme.custom]',
+        '# M3 palette -> herdr tokens (generated)',
+    ]
+    for k, v in tokens:
+        if k == 'panel_bg':
+            # User preference: keep the status bar / tab bar transparent
+            # (reset = terminal background) instead of a solid surface color.
+            out.append(f'{k} = "reset"')
+            continue
+        out.append(f'{k} = "#{v}"')
+    return out
+
+if not os.path.exists(config_path):
+    # First run: minimal theme-only config; herdr uses defaults for the rest.
+    with open(config_path, 'w') as f:
+        f.write('# Generated by theme-switcher — herdr picked up the current theme.\n')
+        f.write('\n'.join(theme_block()) + '\n')
+    print(f'herdr: created {config_path}')
+    sys.exit(0)
+
+with open(config_path) as f:
+    lines = f.readlines()
+
+out = []
+i = 0
+n = len(lines)
+theme_done = False
+ui_accent_done = False
+
+while i < n:
+    line = lines[i]
+    stripped = line.strip()
+
+    if not theme_done and (stripped == '[theme]' or stripped.startswith('[theme.')):
+        # Consume the existing theme block ([theme] + [theme.custom]) up to the
+        # next unrelated section header, then emit the regenerated block.
+        i += 1
+        while i < n:
+            s = lines[i].strip()
+            if s.startswith('[') and not s.startswith('[theme'):
+                break
+            i += 1
+        out.append('\n'.join(theme_block()) + '\n\n')
+        theme_done = True
+        continue
+
+    if not theme_done and stripped == '[terminal]':
+        # No [theme] block existed; insert ours right before the next section.
+        out.append('\n'.join(theme_block()) + '\n\n')
+        theme_done = True
+
+    if stripped == '[ui]':
+        out.append(line)
+        i += 1
+        saw_accent = False
+        while i < n:
+            s = lines[i].strip()
+            if s.startswith('['):
+                break
+            if s.startswith('accent') and '=' in s:
+                out.append(f'accent = "#{accent}"\n')
+                ui_accent_done = True
+                saw_accent = True
+                i += 1
+                continue
+            out.append(lines[i])
+            i += 1
+        if not saw_accent:
+            out.append(f'accent = "#{accent}"\n')
+            ui_accent_done = True
+        continue
+
+    out.append(line)
+    i += 1
+
+if not theme_done:
+    out.append('\n' + '\n'.join(theme_block()) + '\n')
+if not ui_accent_done:
+    out.append('\n[ui]\naccent = "#%s"\n' % accent)
+
+with open(config_path, 'w') as f:
+    f.writelines(out)
+print(f'herdr: config theme updated (accent #{accent})')
+PYEOF
+
+# Live-reload herdr config if the server is running. Guard with a hard
+# timeout so an unresponsive/unreachable herdr server can never block the
+# theme switch — on failure we just fall through.
+if timeout 5 herdr server reload-config >/dev/null 2>&1; then
+  echo "herdr: config reloaded"
+else
+  echo "herdr: config written (server not running — applies on next launch)"
+fi
+
+# ==============================================================
+# Pick random wallpaper and apply
+# ==============================================================
+if [[ "$SELECTED" == "Dynamic" ]]; then
+  # Dynamic: keep current wallpaper, just change colors
+  if [[ ! -f "$LAST_WALLPAPER" ]]; then
+    notify-send "Theme Switcher" "No wallpaper has been set yet. Set one first."
+    exit 1
+  fi
+  RANDOM_WP=$(<"$LAST_WALLPAPER")
+else
+  mapfile -t WALLPAPERS < <(find "$WP_DIR" -maxdepth 1 -type f \( -iname '*.jpg' -o -iname '*.jpeg' -o -iname '*.png' -o -iname '*.webp' -o -iname '*.avif' -o -iname '*.gif' -o -iname '*.bmp' -o -iname '*.tiff' -o -iname '*.tif' -o -iname '*.svg' \) | sort)
+  if [[ ${#WALLPAPERS[@]} -eq 0 ]]; then
+    notify-send "Theme Switcher" "No wallpapers found in $WP_DIR"
+    exit 1
+  fi
+  RANDOM_WP="${WALLPAPERS[RANDOM % ${#WALLPAPERS[@]}]}"
+fi
+
+echo "$SELECTED" >"$CURRENT_THEME_FILE"
+echo "$RANDOM_WP" >"$LAST_WALLPAPER"
+
+# Update matuwall wallpaper_dir to match current theme
+MATUWALL_CONFIG="$HOME/.config/matuwall/config.json"
+if [[ -f "$MATUWALL_CONFIG" ]] && command -v jq >/dev/null; then
+  jq --arg dir "$WP_DIR" '.main.wallpaper_dir = $dir' "$MATUWALL_CONFIG" >"$MATUWALL_CONFIG.tmp" && mv "$MATUWALL_CONFIG.tmp" "$MATUWALL_CONFIG"
+fi
+
+pgrep -x awww-daemon >/dev/null || awww-daemon &
+sleep 0.3
+
+notify-send -i "$RANDOM_WP" "Theme Switcher" "Switching to $SELECTED…"
+
+TRANSITION_DURATION=2.5
+awww img \
+  --transition-type random \
+  --transition-duration "$TRANSITION_DURATION" \
+  --transition-step 15 \
+  --transition-fps 60 \
+  "$RANDOM_WP"
+
+sleep "$TRANSITION_DURATION"
+
+# ==============================================================
+# Post-hooks
+# ==============================================================
+hyprctl reload 2>/dev/null || true
+sleep 0.2
+pkill -SIGUSR2 waybar 2>/dev/null || true
+sleep 0.2
+pkill -SIGUSR2 ghostty 2>/dev/null || true
+# SwayNC — write slider-override.css with hardcoded hex values to
+# bypass GTK's @define-color caching bug, then full restart to
+# clear GTK widget style cache.
+SWAYNC_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/swaync"
+cat > "$SWAYNC_DIR/slider-override.css" <<SWAYNC_OVERRIDE
+/* slider-override.css — GENERATED by theme-switcher
+   Hardcoded hex values bypass GTK's @define-color caching
+   bug that prevents slider/scale widget colors from updating. */
+
+/* Volume & Backlight scale highlight */
+.widget-volume highlight,
+.widget-backlight highlight,
+widget-volume highlight,
+widget-backlight highlight {
+    background: $(hex primary) !important;
+    border-radius: 10px;
+}
+scale highlight {
+    background: $(hex primary) !important;
+    border-radius: 10px;
+}
+scale highlight background {
+    background: $(hex primary) !important;
+}
+
+/* Volume & Backlight trough */
+.widget-volume trough,
+.widget-backlight trough,
+widget-volume trough,
+widget-backlight trough {
+    background: $(hex surface) !important;
+    border-radius: 10px;
+}
+scale trough,
+scale trough background {
+    background: $(hex surface) !important;
+    border-radius: 10px;
+}
+
+/* Volume & Backlight slider knob */
+.widget-volume slider,
+.widget-backlight slider,
+widget-volume slider,
+widget-backlight slider {
+    background: $(hex on_surface) !important;
+    border: 2px solid $(hex primary) !important;
+    border-radius: 50%;
+    box-shadow: none;
+}
+.widget-volume slider:hover,
+.widget-backlight slider:hover,
+widget-volume slider:hover,
+widget-backlight slider:hover {
+    background: $(hex primary) !important;
+    border-color: $(hex primary) !important;
+}
+
+/* DND toggle switch slider */
+.widget-dnd > switch slider {
+    background: $(hex on_surface) !important;
+    border-radius: 50%;
+}
+.widget-dnd > switch:checked slider {
+    background: $(hex on_primary) !important;
+}
+SWAYNC_OVERRIDE
+
+# SwayNC — restart to clear the GTK widget style cache. Fully guarded:
+# swaync-client hangs forever in a "Will wait for connection…" loop when no
+# daemon is running, so only run it if swaync is up, and force a hard timeout
+# regardless. A missing/masked systemd unit is a no-op. Any failure falls
+# through so the theme switch never stalls.
+if pgrep -x swaync >/dev/null 2>&1; then
+  systemctl --user stop swaync.service 2>/dev/null || true
+  sleep 0.1
+  timeout 5 swaync-client -rs >/dev/null 2>&1 || true
+  sleep 0.2
+  systemctl --user start swaync.service 2>/dev/null || true
+  sleep 0.3
+fi
+# Tmux live theme refresh — strip oh-my-tmux inline colors (one-time cleanup)
+strip_inline_colors() {
+  local opt="$1"
+  local raw val clean
+  raw=$(tmux showw -g "$opt" 2>/dev/null) || return 0
+  val="${raw#* }"; val="${val%\"}"; val="${val#\"}"
+  val="${val#*#\[}"; val="#[$val"
+  local prev=""
+  while [[ "$val" != "$prev" ]]; do
+    prev="$val"; val="${val%\\}"; val="${val%\"}"
+  done
+  clean=$(echo "$val" | sed 's/#\[\(fg\|bg\|none\|default\)[^]]*\]//g')
+  [[ "$clean" != "$val" ]] && tmux setw -g "$opt" "$clean" 2>/dev/null || true
+}
+strip_inline_colors window-status-format
+strip_inline_colors window-status-current-format
+CUR_SEP=$(tmux show -g window-status-separator 2>/dev/null)
+if echo "$CUR_SEP" | grep -q '#\['; then
+  tmux set -g window-status-separator " " 2>/dev/null || true
+fi
+
+# Tmux style options
+tmux set -g status-style "fg=$(hex on_surface),bg=default" 2>/dev/null
+tmux set -g status-left-style "fg=$(hex primary),bg=default" 2>/dev/null
+tmux set -g status-right-style "fg=$(hex on_surface_variant),bg=default" 2>/dev/null
+tmux setw -g window-status-style "fg=$(hex outline),bg=default" 2>/dev/null
+tmux setw -g window-status-current-style "fg=$(hex on_primary),bg=$(hex primary)" 2>/dev/null
+tmux set -g pane-border-style "fg=$(hex surface_container_high)" 2>/dev/null
+tmux set -g pane-active-border-style "fg=$(hex primary)" 2>/dev/null
+tmux set -g message-style "fg=$(hex on_surface),bg=default" 2>/dev/null
+tmux set -g message-command-style "fg=$(hex on_surface),bg=default" 2>/dev/null
+tmux set -g mode-style "fg=$(hex on_surface),bg=$(hex surface_container_high)" 2>/dev/null
+tmux set -g display-panes-colour "$(hex outline)" 2>/dev/null
+tmux set -g display-panes-active-colour "$(hex primary)" 2>/dev/null
+tmux set -g clock-mode-colour "$(hex primary)" 2>/dev/null
+tmux setw -g window-status-activity-style "fg=$(hex on_surface_variant),bg=default" 2>/dev/null
+tmux setw -g window-status-bell-style "fg=$(hex error),bg=default" 2>/dev/null
+tmux setw -g window-status-last-style "fg=$(hex primary),bg=default" 2>/dev/null
+tmux set -g window-status-separator " " 2>/dev/null
+sleep 0.1
+# Cycle theme to trigger GTK3 live reload (theme CSS IS reloaded on gsettings change)
+gsettings set org.gnome.desktop.interface gtk-theme 'Adwaita' 2>/dev/null || true
+sleep 1
+gsettings set org.gnome.desktop.interface gtk-theme 'adw-gtk3-dank' 2>/dev/null || true
+# Restart GTK portal so GTK4 file chooser dialogs pick up the refreshed CSS
+systemctl --user restart xdg-desktop-portal-gtk.service 2>/dev/null || true
+sleep 0.5
+notify-send -i "$RANDOM_WP" "Theme Switcher" "Switched to $SELECTED"

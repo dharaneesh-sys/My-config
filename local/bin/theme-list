@@ -1,0 +1,35 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+THEMES_DIR="$HOME/.config/hypr/themes"
+CACHE_DIR="$HOME/.cache/wallpaper"
+CURRENT_THEME_FILE="$CACHE_DIR/current_theme"
+
+declare -A ICONS
+ICONS["Catppuccin-Mocha"]="󰔷"
+ICONS["Catppuccin-Macchiato"]="󰔷"
+ICONS["Gruvbox"]=""
+ICONS["Everforest"]=""
+ICONS["Tokyo-Night"]="󰖐"
+ICONS["Dracula"]="󰛨"
+ICONS["Nord"]="❆"
+ICONS["Rose-Pine"]="󰔶"
+ICONS["Ariadne"]="󰗡"
+ICONS["Nightfox"]="󰺙"
+ICONS["Noir"]=""
+ICONS["Solarized-Dark"]="󰅟"
+
+CURRENT=$(cat "$CURRENT_THEME_FILE" 2>/dev/null || echo "")
+
+for t in "$THEMES_DIR"/*/; do
+  [[ -d "$t" ]] || continue
+  name=$(basename "$t")
+  palette="$t/palette"
+  primary=""
+  [[ -f "$palette" ]] && primary=$(grep "^primary=" "$palette" | cut -d= -f2)
+  primary="${primary:-#ffffff}"
+  icon="${ICONS[$name]:-󰸉}"
+  active="false"
+  [[ "$name" == "$CURRENT" ]] && active="true"
+  printf '{"name":"%s","color":"%s","icon":"%s","active":%s}\n' "$name" "$primary" "$icon" "$active"
+done
